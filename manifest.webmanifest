@@ -1,0 +1,16 @@
+{
+  "name": "Argonvia Campo",
+  "short_name": "Argonvia Campo",
+  "description": "Gamadensímetro e carga em placa (NF P 94-117-1) em obra, para importar no Argonvia ensaios.",
+  "lang": "pt-PT",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f5ef",
+  "theme_color": "#232323",
+  "icons": [
+    {"src": "icone-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ]
+}

@@ -1,0 +1,746 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Argonvia Campo</title>
+<meta name="theme-color" content="#232323">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icone-192.png">
+<link rel="apple-touch-icon" href="icone-192.png">
+<style>
+/* Layout: uma coluna para telemóvel, barra superior escura com o verde Argonvia, cartões só onde há um bloco a preencher,
+   resultados fixos no fundo do ecrã. Contraste alto para ler ao sol. */
+:root {
+  --bg: #f4f5ef; --card: #ffffff; --fg: #1c1d1a; --muted: #5b5c60; --line: #c9cac2; --soft: #e8eadb;
+  --brand: #b2bd21; --brand-ink: #4f5600; --bar: #232323; --bar-fg: #ffffff;
+  --ok: #17703f; --ok-bg: #dcf1e3; --bad: #b42318; --bad-bg: #fde3df; --warn: #8a5a00; --warn-bg: #fff1cf;
+  --focus: #2b6cd6;
+  --f-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --f-num: ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141512; --card: #1f201c; --fg: #f1f2ea; --muted: #a9aaa2; --line: #3c3e36; --soft: #2a2c24;
+  --brand: #c3cf2c; --brand-ink: #d9e46a; --bar: #0b0b0a; --bar-fg: #f1f2ea;
+  --ok: #6fd69a; --ok-bg: #173323; --bad: #ff8a7a; --bad-bg: #3d1712; --warn: #f2c45a; --warn-bg: #3a2c0b;
+  --focus: #7fb0ff; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #141512; --card: #1f201c; --fg: #f1f2ea; --muted: #a9aaa2; --line: #3c3e36; --soft: #2a2c24;
+  --brand: #c3cf2c; --brand-ink: #d9e46a; --bar: #0b0b0a; --bar-fg: #f1f2ea;
+  --ok: #6fd69a; --ok-bg: #173323; --bad: #ff8a7a; --bad-bg: #3d1712; --warn: #f2c45a; --warn-bg: #3a2c0b;
+  --focus: #7fb0ff; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--fg); font: 16px/1.4 var(--f-ui); -webkit-text-size-adjust: 100%;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 96px); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bar); }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+.topo { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--bar); color: var(--bar-fg);
+  border-bottom: 3px solid var(--brand); }
+.topo-in { display: flex; align-items: center; gap: 10px; min-height: 56px;
+  padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); }
+.topo h1 { font-size: 17px; margin: 0; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topo h1 small { display: block; font-size: 12px; font-weight: 400; color: color-mix(in srgb, var(--bar-fg) 70%, transparent); }
+.marca { font-weight: 700; letter-spacing: .02em; }
+.marca b { color: var(--brand); font-weight: 700; }
+.btn-topo { background: transparent; border: 0; color: var(--bar-fg); font-size: 26px; width: 44px; height: 44px; border-radius: 8px; }
+.tabs { display: flex; gap: 2px; padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); overflow-x: auto; }
+.tabs button { flex: 1 0 auto; background: transparent; border: 0; color: color-mix(in srgb, var(--bar-fg) 72%, transparent);
+  padding: 10px 12px 9px; font-size: 15px; font-weight: 600; border-bottom: 4px solid transparent; }
+.tabs button[aria-selected="true"] { color: var(--bar-fg); border-bottom-color: var(--brand); }
+
+main { padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px));
+  padding-block: 12px; display: grid; gap: 12px; max-width: 760px; margin: 0 auto; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 10px; min-width: 0; }
+.card > h2, .card > summary h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+@media (min-width: 600px) { .grid2.l3 { grid-template-columns: repeat(3, 1fr); } }
+label.f { display: grid; gap: 4px; font-size: 13px; color: var(--muted); min-width: 0; }
+label.f > span b { color: var(--bad); }
+input.i, select.i, textarea.i { width: 100%; min-height: 48px; border: 1.5px solid var(--line); border-radius: 8px; background: var(--card);
+  padding: 8px 10px; font-size: 18px; color: var(--fg); }
+input.i.num { font-family: var(--f-num); font-variant-numeric: tabular-nums; }
+input.i:focus { border-color: var(--focus); outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 30%, transparent); }
+textarea.i { min-height: 64px; font-size: 16px; }
+.un { font-size: 12px; color: var(--muted); }
+
+.seg { display: flex; gap: 6px; }
+.seg button { flex: 1; min-height: 48px; border: 1.5px solid var(--line); background: var(--card); border-radius: 8px; font-size: 17px; font-weight: 700; color: var(--fg); }
+.seg button[aria-pressed="true"] { background: var(--bar); color: var(--bar-fg); border-color: var(--bar); box-shadow: inset 0 -4px 0 var(--brand); }
+.seg-l { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+
+.b { min-height: 52px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--card); font-size: 17px; font-weight: 700; padding: 0 16px; color: var(--fg); }
+.b.p { background: var(--brand); border-color: var(--brand); color: #1c1d1a; }
+.b.d { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 50%, var(--line)); }
+.b.s { min-height: 40px; font-size: 15px; padding: 0 12px; }
+.b:disabled { opacity: .45; }
+.linha { display: flex; gap: 8px; flex-wrap: wrap; }
+.linha > .b { flex: 1 1 auto; }
+
+.vivo { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.vivo div { background: var(--soft); border-radius: 8px; padding: 8px; text-align: center; }
+.vivo small { display: block; font-size: 12px; color: var(--muted); }
+.vivo strong { font: 700 22px var(--f-num); font-variant-numeric: tabular-nums; }
+.conf { display: inline-grid; place-items: center; min-width: 44px; height: 32px; padding: 0 8px; border-radius: 16px; font-weight: 800; font-size: 16px; }
+.conf.S { background: var(--ok-bg); color: var(--ok); }
+.conf.N { background: var(--bad-bg); color: var(--bad); }
+.conf.x { background: var(--soft); color: var(--muted); }
+.vivo .S strong { color: var(--ok); } .vivo .N strong { color: var(--bad); }
+.vivo div.S { background: var(--ok-bg); } .vivo div.N { background: var(--bad-bg); }
+
+.aviso { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 8px 10px; font-size: 14px; }
+.info { color: var(--muted); font-size: 14px; margin: 0; }
+
+.lista { display: grid; gap: 0; border-top: 1px solid var(--line); }
+.it { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 10px; padding: 10px 4px; border-bottom: 1px solid var(--line);
+  background: transparent; border-left: 0; border-right: 0; border-top: 0; text-align: left; width: 100%; color: var(--fg); }
+.it .n { font: 700 15px var(--f-num); color: var(--muted); }
+.it .t { min-width: 0; }
+.it .t b { display: block; font-size: 16px; }
+.it .t span { font-size: 13px; color: var(--muted); font-family: var(--f-num); }
+.it.ed { background: var(--soft); }
+
+.rel { display: grid; gap: 4px; text-align: left; width: 100%; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; color: var(--fg); }
+.rel b { font-size: 18px; }
+.rel span { font-size: 14px; color: var(--muted); }
+.chip { display: inline-block; font-size: 12px; font-weight: 700; border-radius: 10px; padding: 2px 8px; background: var(--soft); color: var(--muted); margin-right: 4px; }
+.chip.ok { background: var(--ok-bg); color: var(--ok); }
+
+/* carga em placa */
+.fases { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.fases button { min-height: 54px; border: 1.5px solid var(--line); background: var(--card); border-radius: 8px; font-size: 13px; font-weight: 700; line-height: 1.15; padding: 4px; color: var(--fg); }
+.fases button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+.fases button[aria-pressed="true"] { background: var(--bar); color: var(--bar-fg); border-color: var(--bar); box-shadow: inset 0 -4px 0 var(--brand); }
+.fases button[aria-pressed="true"] small { color: color-mix(in srgb, var(--bar-fg) 70%, transparent); }
+.fases button.feito:not([aria-pressed="true"]) { border-color: var(--ok); }
+.carga { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: end; background: var(--soft); border-radius: 10px; padding: 12px; }
+.carga .q { font: 800 40px/1 var(--f-num); font-variant-numeric: tabular-nums; }
+.carga .q small { font-size: 18px; font-weight: 700; }
+.carga .s { font-size: 14px; color: var(--muted); }
+.crono { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+.crono .rel-t { font: 800 44px/1 var(--f-num); font-variant-numeric: tabular-nums; }
+.crono .prox { font-size: 14px; color: var(--muted); }
+.tab-wrap { overflow-x: auto; margin: 0 -4px; }
+table.lt { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+table.lt th { font-size: 12px; color: var(--muted); font-weight: 600; text-align: center; padding: 4px; }
+table.lt td { padding: 3px 4px; text-align: center; font-family: var(--f-num); }
+table.lt td.tm { font-weight: 700; color: var(--muted); white-space: nowrap; }
+table.lt input { width: 100%; min-width: 74px; min-height: 46px; text-align: center; font: 600 19px var(--f-num); border: 1.5px solid var(--line); border-radius: 8px; background: var(--card); color: var(--fg); padding: 4px; }
+table.lt input:focus { border-color: var(--focus); outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 30%, transparent); }
+table.lt tr.agora td { background: color-mix(in srgb, var(--brand) 28%, transparent); }
+table.lt tr.agora td:first-child { border-radius: 8px 0 0 8px; } table.lt tr.agora td:last-child { border-radius: 0 8px 8px 0; }
+.dm { font-size: 15px; } .dd { font-size: 13px; color: var(--muted); }
+
+.rodape { position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; background: var(--bar); color: var(--bar-fg);
+  border-top: 3px solid var(--brand); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.rodape-in { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; padding-block: 8px;
+  padding-left: max(10px, env(safe-area-inset-left, 0px)); padding-right: max(10px, env(safe-area-inset-right, 0px)); max-width: 760px; margin: 0 auto; }
+.rodape-in div { text-align: center; min-width: 0; }
+.rodape small { display: block; font-size: 11px; color: color-mix(in srgb, var(--bar-fg) 65%, transparent); }
+.rodape strong { font: 700 18px var(--f-num); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.conf-del { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: var(--bad-bg); color: var(--bad); padding: 10px; border-radius: 8px; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 92px); z-index: 40; background: var(--bar); color: var(--bar-fg);
+  border-radius: 10px; padding: 10px 16px; font-weight: 600; box-shadow: 0 6px 20px rgba(0,0,0,.25); max-width: calc(100% - 32px); }
+details.card > summary { cursor: pointer; list-style-position: inside; color: var(--muted); }
+details.mais > summary { cursor: pointer; color: var(--muted); font-size: 14px; padding: 6px 0; }
+pre.json { font: 12px/1.35 var(--f-num); white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow: auto; background: var(--soft); padding: 8px; border-radius: 8px; margin: 0; }
+@media (prefers-reduced-motion: no-preference) { .toast { animation: sobe .18s ease-out; } @keyframes sobe { from { transform: translate(-50%, 10px); opacity: 0; } } }
+</style>
+</head>
+<body>
+<header class="topo">
+  <div class="topo-in">
+    <button class="btn-topo" id="voltar" aria-label="Voltar" hidden>‹</button>
+    <h1 id="titulo"><span class="marca">argon<b>via</b></span> campo</h1>
+    <button class="btn-topo" id="tema" aria-label="Mudar claro / escuro" title="Claro / escuro">◐</button>
+  </div>
+  <nav class="tabs" id="tabs" hidden role="tablist"></nav>
+</header>
+<main id="app"></main>
+<div class="rodape" id="rodape" hidden><div class="rodape-in" id="rodape-in"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script id="calc">
+/* ===== cálculos — os mesmos do programa Argonvia ensaios (modulos/in_situ/calculos.py) ===== */
+var TEMPOS = [0, 60, 120, 180, 240, 300, 360, 420, 480, 540, 600];
+var FASES = ["1.ª carga", "1.ª descarga", "2.ª carga", "2.ª descarga"];
+
+function num(v) {
+  if (v === null || v === undefined) return null;
+  if (typeof v === "number") return isFinite(v) ? v : null;
+  var t = String(v).trim().replace(/\s/g, "").replace(",", ".");
+  if (t === "" || !/^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(t)) return null;
+  var n = Number(t);
+  return isFinite(n) ? n : null;
+}
+/* ROUND do Excel: metade para longe do zero, sobre a representação decimal */
+function xr(x, c) {
+  if (x === null || x === undefined || !isFinite(x)) return null;
+  var s = x < 0 ? -1 : 1, a = Math.abs(x);
+  var r = Number(Math.round(Number(a + "e" + c)) + "e-" + c);
+  return r === 0 ? 0 : s * r;
+}
+function txt(v) { return v === null || v === undefined ? "" : String(v).trim(); }
+
+/* L084 gamadensímetro: w = (γh − γd)/γd × 100 ; CR = γd/γmáx × 100 ; «S» se CR > exigida */
+function calcGama(cab, testes) {
+  var req = num(cab.grau_exigido), out = [], n = 0;
+  (testes || []).forEach(function (t) {
+    var gh = num(t.gh), gd = num(t.gd);
+    var gmax = num(t.gmax); if (gmax === null) gmax = num(cab.gmax);
+    var wop = num(t.wop); if (wop === null) wop = num(cab.wop);
+    var r = { n: null, w: null, CR: null, conf: "", gmax: gmax, wop: wop };
+    if (gd) {
+      r.n = ++n;
+      if (gh !== null) r.w = (gh - gd) / gd * 100;
+      if (gmax) r.CR = gd / gmax * 100;
+      r.conf = r.CR === null ? "" : (req === null || r.CR > req ? "S" : "N");
+    }
+    out.push(r);
+  });
+  return out;
+}
+
+function areaPlaca(diam) { return xr(Math.PI * Math.pow(diam / 2, 2) / 10, 0); }
+function cargaKN(sigma, area) { return xr(sigma * 0.010197 / 10.2 * area, 0); }
+function nDef(p) { var n = num(p.deflectometros); return n === 1 || n === 2 || n === 3 ? n : 1; }
+
+/* L401 carga em placa NF P 94-117-1 */
+function calcPlaca(p) {
+  var diam = num(p.placa) || 60;
+  var nu = num(p.poisson); if (nu === null) nu = 0.25;
+  var s1 = num(p.sigma1), s2 = num(p.sigma2);
+  var area = areaPlaca(diam), nd = nDef(p);
+  var ini = [0, 1, 2].map(function (k) { return num((p.ini || [])[k]) || 0; });
+  var dm = TEMPOS.map(function (_, i) {
+    var o = {};
+    for (var f = 0; f < 4; f++) {
+      var vals = [];
+      for (var k = 0; k < nd; k++) {
+        var v = num((((p.L || {})["d" + (k + 1)] || [])[i] || {})["f" + f]);
+        if (v !== null) vals.push(Math.abs(v - ini[k]));
+      }
+      o["f" + f] = vals.length ? vals.reduce(function (a, b) { return a + b; }, 0) / vals.length : null;
+    }
+    return o;
+  });
+  var fases = [0, 1, 2, 3].map(function (f) {
+    var usados = [];
+    TEMPOS.forEach(function (t, i) { if (dm[i]["f" + f] !== null) usados.push([t, dm[i]["f" + f]]); });
+    var ten = [s1, 0, s2, 0][f];
+    return { nome: FASES[f], tensao: ten, carga: ten === null ? null : cargaKN(ten, area),
+      dmi: usados.length ? usados[0][1] : null, dmf: usados.length ? usados[usados.length - 1][1] : null,
+      t_final: usados.length ? usados[usados.length - 1][0] : null,
+      variacao: usados.length >= 2 ? usados[usados.length - 1][1] - usados[usados.length - 2][1] : null };
+  });
+  var W1 = fases[0].dmf;
+  var W2 = fases[2].dmf !== null && fases[1].dmf !== null ? fases[2].dmf - fases[1].dmf : null;
+  var fator = Math.PI / 4 * (1 - nu * nu);
+  var ev1 = W1 !== null && s1 !== null && W1 ? xr(fator * ((s1 / 1000) * diam * 10) / W1, 1) : null;
+  var ev2 = W2 !== null && s2 !== null && W2 ? xr(fator * ((s2 / 1000) * diam * 10) / W2, 1) : null;
+  return { area: area, dm: dm, fases: fases, W1: W1, W2: W2, Ev1: ev1, Ev2: ev2,
+    k: ev1 !== null && ev2 !== null && ev1 ? xr(ev2 / ev1, 2) : null };
+}
+</script>
+
+<script>
+/* ===== estado ===== */
+var CHAVE = "argonvia-campo-v1";
+var S = carregar();
+var UI = { vista: "lista", rel: null, tab: "dados", ecp: null, edTeste: null, apagar: null };
+var crono = null, audio = null, wake = null, ultimoBip = -1;
+
+function carregar() {
+  try { var s = JSON.parse(localStorage.getItem(CHAVE) || "null"); if (s && s.rels) return s; } catch (e) {}
+  return { v: 1, rels: [], ultimoCab: null, operador: "" };
+}
+var tGravar = null;
+function gravar() {
+  clearTimeout(tGravar);
+  tGravar = setTimeout(function () { try { localStorage.setItem(CHAVE, JSON.stringify(S)); } catch (e) { toast("Não foi possível gravar no telemóvel: " + e.message); } }, 150);
+}
+function gravarJa() { clearTimeout(tGravar); try { localStorage.setItem(CHAVE, JSON.stringify(S)); } catch (e) {} }
+window.addEventListener("pagehide", gravarJa);
+document.addEventListener("visibilitychange", function () { if (document.hidden) gravarJa(); else if (crono) pedirWake(); });
+try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
+
+function hoje() { var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function rel() { return S.rels.find(function (r) { return r.id === UI.rel; }); }
+function esc(s) { return String(s === null || s === undefined ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+function F(v, c) { if (v === null || v === undefined || !isFinite(v)) return "—"; return xr(v, c).toFixed(c).replace(".", ","); }
+function pk(v) {
+  var s = txt(v); if (!s || s.indexOf("+") >= 0) return s;
+  var n = num(s); if (n === null) return s;
+  var km = Math.floor(n / 1000), r = n - km * 1000;
+  if (Math.abs(r - Math.round(r)) < 1e-9) { r = Math.round(r); if (r === 1000) { km++; r = 0; } return km + "+" + String(r).padStart(3, "0"); }
+  var t = r.toFixed(3).replace(/0+$/, "").replace(/\.$/, ""); var p = t.split(".");
+  return km + "+" + p[0].padStart(3, "0") + (p[1] ? "," + p[1] : "");
+}
+function hora(ts) { var d = new Date(ts); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
+
+function novoRel() {
+  var r = { id: uid(), criado: Date.now(), relatorio: "", obra: "", local: "", data: hoje(), operador: S.operador || "", obs: "",
+    gama: { cab: {}, testes: [] }, placas: [], exportado: null };
+  if (S.ultimoCab) {
+    ["n_serie", "sub_lanco", "camada", "tipo_material", "proctor_relatorio", "amostra_ref", "gmax", "wop", "grau_exigido", "prof"].forEach(function (k) {
+      if (S.ultimoCab[k] !== undefined) r.gama.cab[k] = S.ultimoCab[k];
+    });
+    if (S.ultimaObra) r.obra = S.ultimaObra;
+  }
+  S.rels.unshift(r); gravar(); return r;
+}
+function novaPlaca(r) {
+  var ant = r.placas[r.placas.length - 1];
+  var p = { n_ensaio: "ECP n.º " + (r.placas.length + 1), local: "", obs: "", placa: ant ? ant.placa : "60", poisson: ant ? ant.poisson : "0,25",
+    sigma1: ant ? ant.sigma1 : "250", sigma2: ant ? ant.sigma2 : "200", deflectometros: ant ? ant.deflectometros : 1, ini: ["", "", ""],
+    L: { d1: vazia(), d2: vazia(), d3: vazia() }, fase: 0, t0: null, hora: Date.now() };
+  r.placas.push(p); gravar(); return p;
+}
+function vazia() { return TEMPOS.map(function () { return {}; }); }
+
+/* ===== interface ===== */
+var $ = function (s, el) { return (el || document).querySelector(s); };
+var app = $("#app");
+function toast(m) { var t = $("#toast"); t.textContent = m; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(function () { t.hidden = true; }, 2600); }
+
+function campo(path, rot, o) {
+  o = o || {};
+  var v = obter(path);
+  var tipo = o.num ? ' inputmode="decimal" autocomplete="off"' : (o.pk ? ' inputmode="decimal" autocomplete="off"' : "");
+  var cls = "i" + (o.num || o.pk ? " num" : "");
+  var id = "c_" + path.replace(/[^\w]/g, "_");
+  var inp = o.area ? '<textarea class="' + cls + '" id="' + id + '" data-p="' + path + '">' + esc(v) + "</textarea>"
+    : '<input class="' + cls + '" id="' + id + '" data-p="' + path + '" value="' + esc(v) + '"' + tipo + (o.type ? ' type="' + o.type + '"' : "") + (o.ph ? ' placeholder="' + esc(o.ph) + '"' : "") + ">";
+  return '<label class="f" for="' + id + '"><span>' + rot + (o.req ? " <b>*</b>" : "") + (o.un ? ' <span class="un">(' + o.un + ")</span>" : "") + "</span>" + inp +
+    (o.pk ? '<span class="un" data-o="pk:' + path + '">' + esc(pk(v)) + "</span>" : "") + "</label>";
+}
+function seg(path, rot, opcoes) {
+  var v = obter(path);
+  return '<div><div class="seg-l">' + rot + '</div><div class="seg">' + opcoes.map(function (o) {
+    return '<button type="button" data-seg="' + path + '" data-v="' + esc(o[0]) + '" aria-pressed="' + (String(v) === String(o[0])) + '">' + o[1] + "</button>";
+  }).join("") + "</div></div>";
+}
+/* caminhos: r.<chave> (relatório), g.<chave> (cabeçalho do gamadensímetro), t.<chave> (teste em edição), p.<chave> (ECP aberto) */
+var TESTE = {};
+function alvo(path) {
+  var r = rel(), a = path.split("."), raiz;
+  if (a[0] === "r") raiz = r; else if (a[0] === "g") raiz = r.gama.cab; else if (a[0] === "t") raiz = TESTE; else if (a[0] === "p") raiz = r.placas[UI.ecp];
+  var o = raiz; for (var i = 1; i < a.length - 1; i++) o = o[a[i]];
+  return [o, a[a.length - 1]];
+}
+function obter(path) { var x = alvo(path); var v = x[0] ? x[0][x[1]] : ""; return v === undefined || v === null ? "" : v; }
+function definir(path, v) {
+  var x = alvo(path); x[0][x[1]] = v;
+  var r = rel(); if (r) r.mod = Date.now();
+  if (path[0] !== "t") gravar();
+}
+
+app.addEventListener("input", function (e) {
+  var p = e.target.getAttribute("data-p");
+  if (p) { definir(p, e.target.value); atualizar(); }
+});
+app.addEventListener("click", function (e) {
+  var b = e.target.closest("[data-seg]");
+  if (b) {
+    var path = b.getAttribute("data-seg"), v = b.getAttribute("data-v");
+    definir(path, /^\d+$/.test(v) && path === "p.deflectometros" ? Number(v) : v);
+    b.parentNode.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+    if (path === "p.deflectometros") render(); else atualizar();
+    return;
+  }
+  var a = e.target.closest("[data-a]");
+  if (a) acao(a.getAttribute("data-a"), a.getAttribute("data-x"), a);
+});
+app.addEventListener("keydown", function (e) {
+  if (e.key !== "Enter" || e.target.tagName !== "INPUT") return;
+  e.preventDefault();
+  var todos = Array.prototype.slice.call(app.querySelectorAll("input:not([disabled]), textarea"));
+  if (e.target.closest(".lt")) todos = Array.prototype.slice.call(app.querySelectorAll(".lt input"));
+  var i = todos.indexOf(e.target);
+  if (e.target.id === "c_t_gd") { acao("guardarTeste"); return; }
+  if (i >= 0 && i < todos.length - 1) todos[i + 1].focus(); else e.target.blur();
+});
+
+$("#voltar").onclick = function () {
+  if (UI.vista === "ecp") { UI.vista = "rel"; UI.tab = "placa"; pararCrono(); }
+  else { UI.vista = "lista"; UI.rel = null; }
+  UI.apagar = null; render(); window.scrollTo(0, 0);
+};
+$("#tema").onclick = function () {
+  var el = document.documentElement, escuro = el.getAttribute("data-theme") ? el.getAttribute("data-theme") === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  el.setAttribute("data-theme", escuro ? "light" : "dark");
+  try { localStorage.setItem(CHAVE + "-tema", el.getAttribute("data-theme")); } catch (e) {}
+};
+try { var tm = localStorage.getItem(CHAVE + "-tema"); if (tm) document.documentElement.setAttribute("data-theme", tm); } catch (e) {}
+
+function render() {
+  var r = rel();
+  $("#voltar").hidden = UI.vista === "lista";
+  $("#rodape").hidden = true;
+  var tabs = $("#tabs");
+  if (UI.vista === "lista") {
+    $("#titulo").innerHTML = '<span class="marca">argon<b>via</b></span> campo<small>Gamadensímetro · Carga em placa</small>';
+    tabs.hidden = true; vistaLista();
+  } else if (UI.vista === "rel") {
+    $("#titulo").innerHTML = esc(r.relatorio ? "Relatório " + r.relatorio : "Relatório novo") + "<small>" + esc(r.obra || "sem obra") + "</small>";
+    tabs.hidden = false;
+    var T = [["dados", "Dados"], ["gama", "Gamadens."], ["placa", "Placa"], ["enviar", "Enviar"]];
+    tabs.innerHTML = T.map(function (t) { return '<button role="tab" data-tab="' + t[0] + '" aria-selected="' + (UI.tab === t[0]) + '">' + t[1] + "</button>"; }).join("");
+    tabs.querySelectorAll("button").forEach(function (b) { b.onclick = function () { UI.tab = b.getAttribute("data-tab"); UI.apagar = null; render(); window.scrollTo(0, 0); }; });
+    ({ dados: vistaDados, gama: vistaGama, placa: vistaPlacas, enviar: vistaEnviar })[UI.tab]();
+  } else if (UI.vista === "ecp") {
+    var p = r.placas[UI.ecp];
+    $("#titulo").innerHTML = esc(p.n_ensaio || "Carga em placa") + "<small>Relatório " + esc(r.relatorio || "—") + " · NF P 94-117-1</small>";
+    tabs.hidden = true; vistaECP();
+  }
+  atualizar();
+}
+
+/* ---------- lista de relatórios ---------- */
+function vistaLista() {
+  var h = '<button class="b p" data-a="novoRel">+ Novo relatório</button>';
+  if (!S.rels.length) h += '<div class="card"><p class="info">Cada relatório junta os testes do gamadensímetro e os ensaios de carga em placa de uma amostra. ' +
+    "Tudo fica gravado neste telemóvel enquanto escreve, mesmo sem rede. No fim, em «Enviar», partilhe o ficheiro com o laboratório e importe-o no Argonvia ensaios.</p></div>";
+  S.rels.forEach(function (r) {
+    var ng = r.gama.testes.length, np = r.placas.length;
+    h += '<button class="rel" data-a="abrirRel" data-x="' + r.id + '"><b>' + esc(r.relatorio ? "Relatório " + r.relatorio : "Relatório sem n.º") + "</b>" +
+      "<span>" + esc(r.obra || "—") + " · " + esc(r.data || "") + "</span><span>" +
+      (ng ? '<span class="chip">' + ng + " teste" + (ng > 1 ? "s" : "") + " gamadens.</span>" : "") +
+      (np ? '<span class="chip">' + np + " ECP</span>" : "") +
+      (r.exportado ? '<span class="chip ok">enviado ' + hora(r.exportado) + "</span>" : "") + "</span></button>";
+  });
+  app.innerHTML = h;
+}
+
+/* ---------- dados do relatório ---------- */
+function vistaDados() {
+  var r = rel();
+  var h = '<section class="card"><h2>Relatório</h2><div class="grid2">' +
+    campo("r.relatorio", "N.º do relatório", { req: 1, num: 1 }) + campo("r.data", "Data", { type: "date" }) + "</div>" +
+    campo("r.obra", "Obra") + campo("r.local", "Localização") +
+    '<div class="grid2">' + campo("r.operador", "Operador (iniciais)") + "</div>" + campo("r.obs", "Observações", { area: 1 }) + "</section>";
+  h += '<div class="linha"><button class="b p" data-a="tab" data-x="gama">Gamadensímetro ›</button><button class="b p" data-a="tab" data-x="placa">Carga em placa ›</button></div>';
+  h += UI.apagar === "rel" ? '<div class="conf-del">Apagar este relatório e todos os testes deste telemóvel?<button class="b d s" data-a="apagarRelSim">Apagar</button><button class="b s" data-a="cancelar">Cancelar</button></div>'
+    : '<button class="b d" data-a="apagarRel">Apagar relatório</button>';
+  app.innerHTML = h;
+}
+
+/* ---------- gamadensímetro ---------- */
+function vistaGama() {
+  var r = rel(), g = r.gama, cab = g.cab;
+  var falta = num(cab.gmax) === null || num(cab.grau_exigido) === null;
+  var h = '<details class="card"' + (falta || !g.testes.length ? " open" : "") + '><summary><h2 style="display:inline">Cabeçalho (igual para todos os testes)</h2></summary>' +
+    '<div class="grid2 l3">' + campo("g.gmax", "γ máx.", { num: 1, un: "g/cm³", req: 1 }) + campo("g.wop", "W op", { num: 1, un: "%" }) + campo("g.grau_exigido", "CR exigida", { num: 1, un: "%", req: 1 }) +
+    campo("g.prof", "Profundidade", { num: 1, un: "mm" }) + campo("g.cota", "Cota") + campo("g.n_serie", "N.º série aparelho") +
+    campo("g.ms", "Padrão MS", { num: 1 }) + campo("g.ds", "Padrão DS", { num: 1 }) + "</div>" +
+    '<div class="grid2">' + campo("g.sub_lanco", "Sub-lanço") + campo("g.camada", "Camada") + "</div>" + campo("g.tipo_material", "Tipo de material") +
+    '<div class="grid2">' + campo("g.proctor_relatorio", "Relatório do Proctor") + campo("g.amostra_ref", "Amostra do Proctor") + "</div></details>";
+  if (UI.edTeste === null) {
+    var ult = g.testes[g.testes.length - 1] || {};
+    TESTE = { pk: "", faixa: ult.faixa || "", seccao: ult.seccao || "S", posicao: ult.posicao || "C", gh: "", gd: "" };
+  }
+  var ed = UI.edTeste !== null && UI.edTeste >= 0;
+  h += '<section class="card" id="form-teste"><h2>' + (ed ? "Corrigir teste " + (UI.edTeste + 1) : "Teste " + (g.testes.length + 1)) + "</h2>" +
+    campo("t.pk", "PK", { pk: 1, ph: "ex.: 14365" }) +
+    '<div class="grid2">' + seg("t.faixa", "Faixa", [["E", "E"], ["D", "D"]]) + seg("t.seccao", "Secção", [["S", "S"], ["R", "R"], ["N", "N"]]) + "</div>" +
+    seg("t.posicao", "Posição na faixa", [["E", "Esquerda"], ["C", "Centro"], ["D", "Direita"]]) +
+    '<div class="grid2">' + campo("t.gh", "γh do aparelho", { num: 1, un: "g/cm³" }) + campo("t.gd", "γd do aparelho", { num: 1, un: "g/cm³" }) + "</div>" +
+    '<details class="mais"><summary>Diferente do cabeçalho neste teste (prof., cota, γ máx., W op)</summary><div class="grid2">' +
+    campo("t.prof", "Profundidade", { num: 1, un: "mm" }) + campo("t.cota", "Cota") + campo("t.gmax", "γ máx.", { num: 1, un: "g/cm³" }) + campo("t.wop", "W op", { num: 1, un: "%" }) + "</div></details>" +
+    '<div class="vivo" id="vivo-t"></div><div class="aviso" id="aviso-t" hidden></div>' +
+    '<div class="linha"><button class="b p" data-a="guardarTeste">' + (ed ? "Guardar correção" : "Guardar teste") + "</button>" +
+    (ed ? '<button class="b" data-a="cancelarTeste">Cancelar</button>' : "") + "</div>" +
+    (ed ? (UI.apagar === "teste" ? '<div class="conf-del">Apagar o teste ' + (UI.edTeste + 1) + '?<button class="b d s" data-a="apagarTesteSim">Apagar</button><button class="b s" data-a="cancelar">Não</button></div>'
+      : '<button class="b d s" data-a="apagarTeste">Apagar este teste</button>') : "") + "</section>";
+  var res = calcGama(cab, g.testes);
+  if (g.testes.length) {
+    var nS = res.filter(function (x) { return x.conf === "S"; }).length, nN = res.filter(function (x) { return x.conf === "N"; }).length;
+    h += '<section class="card"><h2>Testes<span>' + '<span class="conf S">' + nS + ' S</span> <span class="conf N">' + nN + " N</span></span></h2><div class=\"lista\">";
+    g.testes.forEach(function (t, i) {
+      var x = res[i];
+      h += '<button class="it' + (UI.edTeste === i ? " ed" : "") + '" data-a="editarTeste" data-x="' + i + '"><span class="n">' + (i + 1) + '</span><span class="t"><b>' + esc(pk(t.pk) || "sem PK") +
+        " · " + esc([t.faixa, t.seccao, t.posicao].filter(Boolean).join(" ")) + "</b><span>γd " + F(num(t.gd), 3) + " · w " + F(x.w, 1) + "% · CR " + F(x.CR, 1) + "%</span></span>" +
+        '<span class="conf ' + (x.conf || "x") + '">' + (x.conf || "—") + "</span></button>";
+    });
+    h += "</div></section>";
+  }
+  app.innerHTML = h;
+}
+
+/* ---------- carga em placa: lista ---------- */
+function vistaPlacas() {
+  var r = rel();
+  var h = '<button class="b p" data-a="novaPlaca">+ Novo ensaio de carga em placa</button>';
+  if (!r.placas.length) h += '<div class="card"><p class="info">Cada ensaio tem o seu n.º (ECP n.º 1, 2, …). No ensaio: escreva a placa e as tensões, as leituras antes da carga, e para cada fase arranque o cronómetro quando a carga estiver aplicada. O telemóvel apita a cada minuto, na hora de ler.</p></div>';
+  r.placas.forEach(function (p, i) {
+    var c = calcPlaca(p);
+    h += '<button class="rel" data-a="abrirECP" data-x="' + i + '"><b>' + esc(p.n_ensaio || "ECP") + "</b><span>" + esc(p.local || "sem localização") + "</span><span>" +
+      '<span class="chip' + (c.Ev2 !== null ? " ok" : "") + '">Ev1 ' + F(c.Ev1, 1) + " · Ev2 " + F(c.Ev2, 1) + " MPa · k " + F(c.k, 2) + "</span></span></button>";
+  });
+  app.innerHTML = h;
+}
+
+/* ---------- carga em placa: ensaio ---------- */
+function vistaECP() {
+  var r = rel(), p = r.placas[UI.ecp], c = calcPlaca(p), nd = nDef(p), f = p.fase || 0;
+  var h = '<section class="card"><h2>Identificação</h2><div class="grid2">' + campo("p.n_ensaio", "N.º do ensaio") + campo("p.local", "Localização / PK") + "</div></section>";
+  h += '<details class="card"' + (c.fases[0].dmf === null ? " open" : "") + '><summary><h2 style="display:inline">Placa, tensões e leituras antes da carga</h2></summary>' +
+    '<div class="grid2">' + campo("p.placa", "Placa Ø", { num: 1, un: "cm" }) + campo("p.poisson", "Poisson ν", { num: 1 }) +
+    campo("p.sigma1", "σ1 — 1.ª carga", { num: 1, un: "kPa" }) + campo("p.sigma2", "σ2 — 2.ª carga", { num: 1, un: "kPa" }) + "</div>" +
+    seg("p.deflectometros", "Deflectómetros", [[1, "1"], [2, "2"], [3, "3"]]) +
+    '<div class="grid3">' + [0, 1, 2].slice(0, nd).map(function (k) { return campo("p.ini." + k, "Zero d" + (k + 1), { num: 1, un: "mm" }); }).join("") + "</div>" +
+    '<p class="info">Área da placa: <span data-o="area"></span> cm² (como no Excel FLAB401).</p></details>';
+  h += '<div class="fases" role="group" aria-label="Fase">' + FASES.map(function (n, k) {
+    var feito = c.fases[k].dmf !== null;
+    return '<button data-a="fase" data-x="' + k + '" aria-pressed="' + (k === f) + '" class="' + (feito ? "feito" : "") + '">' + n + "<small>" + (feito ? "✓ " + F(c.fases[k].dmf, 2) + " mm" : "por fazer") + "</small></button>";
+  }).join("") + "</div>";
+  h += '<section class="card"><div class="carga"><div><div class="s" data-o="fase-txt"></div><div class="q"><span data-o="carga"></span> <small>kN</small></div></div><div class="s" style="text-align:right" data-o="sigma"></div></div>' +
+    '<div class="crono"><div><div class="rel-t" data-o="relogio">0:00</div><div class="prox" data-o="prox">Arranque quando a carga estiver aplicada</div></div>' +
+    '<button class="b p" data-a="crono" data-o="btn-crono">▶ Iniciar</button></div>' +
+    '<div class="tab-wrap"><table class="lt"><thead><tr><th>Tempo</th>' + [0, 1, 2].slice(0, nd).map(function (k) { return "<th>d" + (k + 1) + " (mm)</th>"; }).join("") +
+    "<th>Deflexão</th><th>Δ</th></tr></thead><tbody>" +
+    TEMPOS.map(function (t, i) {
+      return '<tr data-i="' + i + '"><td class="tm">' + (t / 60) + " min</td>" + [0, 1, 2].slice(0, nd).map(function (k) {
+        return '<td><input id="l_' + f + "_" + k + "_" + i + '" data-p="p.L.d' + (k + 1) + "." + i + ".f" + f + '" inputmode="decimal" autocomplete="off" value="' + esc(((p.L["d" + (k + 1)] || [])[i] || {})["f" + f] || "") + '" aria-label="d' + (k + 1) + " aos " + t + ' s"></td>';
+      }).join("") + '<td class="dm" data-o="dm' + i + '"></td><td class="dd" data-o="dd' + i + '"></td></tr>';
+    }).join("") + "</tbody></table></div>" +
+    '<p class="info">Deflexão = |leitura − zero|' + (nd > 1 ? ", média dos " + nd + " deflectómetros" : "") + ". Conta a última leitura da fase. Enter passa à linha seguinte.</p>" +
+    '<div class="linha">' + (f > 0 ? '<button class="b" data-a="fase" data-x="' + (f - 1) + '">‹ Fase anterior</button>' : "") +
+    (f < 3 ? '<button class="b p" data-a="fase" data-x="' + (f + 1) + '">Fase seguinte ›</button>' : '<button class="b p" data-a="fimECP">Concluir ensaio</button>') + "</div></section>";
+  h += '<section class="card"><h2>Fases</h2><div class="tab-wrap"><table class="lt"><thead><tr><th style="text-align:left">Fase</th><th>σ kPa</th><th>Carga kN</th><th>Inicial mm</th><th>Final mm</th></tr></thead><tbody>' +
+    c.fases.map(function (x) { return '<tr><td style="text-align:left;font-family:var(--f-ui)">' + x.nome + "</td><td>" + F(x.tensao, 0) + "</td><td>" + F(x.carga, 0) + "</td><td>" + F(x.dmi, 2) + "</td><td>" + F(x.dmf, 2) + "</td></tr>"; }).join("") +
+    "</tbody></table></div>" + campo("p.obs", "Observações", { area: 1 }) + "</section>";
+  h += UI.apagar === "ecp" ? '<div class="conf-del">Apagar ' + esc(p.n_ensaio) + '?<button class="b d s" data-a="apagarECPSim">Apagar</button><button class="b s" data-a="cancelar">Não</button></div>'
+    : '<button class="b d" data-a="apagarECP">Apagar este ensaio</button>';
+  app.innerHTML = h;
+  $("#rodape").hidden = false;
+}
+
+/* ---------- enviar ---------- */
+function exportar(r) {
+  var ensaios = [];
+  var g = r.gama, usados = g.testes.filter(function (t) { return num(t.gd) !== null || num(t.gh) !== null || txt(t.pk); });
+  var N = function (v) { var n = num(v); return n === null ? (txt(v) || undefined) : n; };
+  if (usados.length) {
+    var d = {};
+    ["n_serie", "ms", "ds", "sub_lanco", "camada", "tipo_material", "proctor_relatorio", "amostra_ref", "gmax", "wop", "grau_exigido", "prof", "cota"].forEach(function (k) {
+      var v = g.cab[k]; if (txt(v)) d[k] = ["n_serie", "sub_lanco", "camada", "tipo_material", "proctor_relatorio", "amostra_ref", "cota"].indexOf(k) >= 0 ? txt(v) : N(v);
+    });
+    var res = calcGama(g.cab, usados);
+    d.testes = usados.map(function (t) {
+      var o = { pk: txt(t.pk), faixa: txt(t.faixa), seccao: txt(t.seccao), posicao: txt(t.posicao), gh: N(t.gh), gd: N(t.gd) };
+      ["prof", "gmax", "wop"].forEach(function (k) { if (txt(t[k])) o[k] = N(t[k]); });
+      if (txt(t.cota)) o.cota = txt(t.cota);
+      return o;
+    });
+    ensaios.push({ codigo: "FLAB084", dados: d, hora: usados[0].hora || null,
+      app: { CR: res.map(function (x) { return x.CR === null ? null : xr(x.CR, 1); }), w: res.map(function (x) { return x.w === null ? null : xr(x.w, 1); }), conf: res.map(function (x) { return x.conf; }) } });
+  }
+  r.placas.forEach(function (p) {
+    var c = calcPlaca(p), nd = nDef(p);
+    if (c.fases.every(function (x) { return x.dmf === null; })) return;
+    var d = { n_ensaio: txt(p.n_ensaio), placa: N(p.placa), poisson: N(p.poisson), sigma1: N(p.sigma1), sigma2: N(p.sigma2), deflectometros: nd };
+    for (var k = 0; k < nd; k++) {
+      if (txt((p.ini || [])[k])) d["ini_d" + (k + 1)] = N(p.ini[k]);
+      d["d" + (k + 1)] = TEMPOS.map(function (_, i) {
+        var o = {}, row = (p.L["d" + (k + 1)] || [])[i] || {};
+        for (var f = 0; f < 4; f++) if (num(row["f" + f]) !== null) o["f" + f] = num(row["f" + f]);
+        return o;
+      });
+    }
+    ensaios.push({ codigo: "FLAB401", dados: d, local: txt(p.local), observacoes: txt(p.obs), hora: p.hora || null,
+      app: { W1: c.W1 === null ? null : xr(c.W1, 2), W2: c.W2 === null ? null : xr(c.W2, 2), Ev1: c.Ev1, Ev2: c.Ev2, k: c.k } });
+  });
+  return { app: "argonvia-campo", versao: 1, exportado: new Date().toISOString(), relatorio: txt(r.relatorio), obra: txt(r.obra),
+    localizacao: txt(r.local), data: txt(r.data), operador: txt(r.operador), observacoes: txt(r.obs), ensaios: ensaios };
+}
+function problemas(r) {
+  var out = [];
+  if (!txt(r.relatorio)) out.push("Falta o n.º do relatório (separador Dados).");
+  if (r.gama.testes.length) {
+    if (num(r.gama.cab.gmax) === null) out.push("Gamadensímetro: falta γ máx. no cabeçalho — sem ele não há CR.");
+    if (num(r.gama.cab.grau_exigido) === null) out.push("Gamadensímetro: falta a CR exigida no cabeçalho.");
+  }
+  r.placas.forEach(function (p) {
+    var c = calcPlaca(p);
+    if (c.fases.every(function (x) { return x.dmf === null; })) out.push((p.n_ensaio || "ECP") + ": sem leituras — não vai no ficheiro.");
+    else if (c.Ev2 === null) out.push((p.n_ensaio || "ECP") + ": incompleto (sem Ev2).");
+  });
+  return out;
+}
+function nomeFicheiro(r) { return "campo_" + (txt(r.relatorio) || "sem_relatorio").replace(/[^\w-]+/g, "_") + "_" + (r.data || hoje()) + ".json"; }
+function vistaEnviar() {
+  var r = rel(), e = exportar(r), pr = problemas(r);
+  var ng = e.ensaios.filter(function (x) { return x.codigo === "FLAB084"; }).map(function (x) { return x.dados.testes.length; })[0] || 0;
+  var np = e.ensaios.filter(function (x) { return x.codigo === "FLAB401"; }).length;
+  var h = '<section class="card"><h2>O que vai no ficheiro</h2><p class="info" style="color:var(--fg)">' +
+    (ng ? ng + " teste" + (ng > 1 ? "s" : "") + " de gamadensímetro (L084)" : "Sem testes de gamadensímetro") + "<br>" +
+    (np ? np + " ensaio" + (np > 1 ? "s" : "") + " de carga em placa (L401)" : "Sem ensaios de carga em placa") + "</p>" +
+    (pr.length ? '<div class="aviso">' + pr.map(esc).join("<br>") + "</div>" : "") +
+    '<div class="linha"><button class="b p" data-a="partilhar"' + (e.ensaios.length ? "" : " disabled") + '>Partilhar ficheiro</button>' +
+    '<button class="b" data-a="descarregar"' + (e.ensaios.length ? "" : " disabled") + ">Guardar no telemóvel</button></div>" +
+    '<p class="info">Envie por email, WhatsApp ou Drive. No laboratório: Argonvia ensaios → «Importar do Excel…» → escolha o ficheiro <b>' + esc(nomeFicheiro(r)) + "</b>.</p>" +
+    (r.exportado ? '<p class="info">Último envio: ' + new Date(r.exportado).toLocaleString("pt-PT") + "</p>" : "") + "</section>" +
+    '<details class="card"><summary><h2 style="display:inline">Ver o conteúdo</h2></summary><pre class="json">' + esc(JSON.stringify(e, null, 1)) + '</pre><button class="b s" data-a="copiar">Copiar texto</button></details>';
+  app.innerHTML = h;
+}
+
+/* ---------- atualização dos valores calculados (sem redesenhar os campos) ---------- */
+function atualizar() {
+  app.querySelectorAll('[data-o^="pk:"]').forEach(function (el) { var v = obter(el.getAttribute("data-o").slice(3)); var f = pk(v); el.textContent = f && f !== txt(v) ? "PK " + f : ""; });
+  var r = rel(); if (!r) return;
+  if (UI.vista === "rel" && UI.tab === "gama") {
+    var cab = r.gama.cab, x = calcGama(cab, [TESTE])[0], gh = num(TESTE.gh), gd = num(TESTE.gd);
+    var v = $("#vivo-t");
+    if (v) v.innerHTML = "<div><small>w</small><strong>" + F(x.w, 1) + "</strong></div><div><small>CR %</small><strong>" + F(x.CR, 1) + "</strong></div>" +
+      '<div class="' + (x.conf || "") + '"><small>exigida ' + F(num(cab.grau_exigido), 0) + "%</small><strong>" + (x.conf || "—") + "</strong></div>";
+    var av = [], a = $("#aviso-t");
+    if (gh !== null && gd !== null && gd > gh) av.push("γd maior que γh — confirme as leituras.");
+    [gh, gd].forEach(function (g) { if (g !== null && (g < 1 || g > 3)) av.push("Baridade " + F(g, 3) + " g/cm³ fora do normal — confirme."); });
+    if (gd !== null && x.gmax === null) av.push("Falta γ máx. no cabeçalho para calcular a CR.");
+    if (a) { a.hidden = !av.length; a.innerHTML = av.map(esc).join("<br>"); }
+  }
+  if (UI.vista === "ecp") {
+    var p = r.placas[UI.ecp], c = calcPlaca(p), f = p.fase || 0, fx = c.fases[f];
+    var set = function (k, s) { var el = app.querySelector('[data-o="' + k + '"]'); if (el) el.textContent = s; };
+    set("area", F(c.area, 0));
+    set("fase-txt", fx.nome + (f % 2 ? " — descarregar" : " — carga a aplicar no macaco"));
+    set("carga", f % 2 ? "0" : F(fx.carga, 0));
+    set("sigma", "σ = " + F(fx.tensao, 0) + " kPa");
+    var ant = null;
+    TEMPOS.forEach(function (t, i) {
+      var dmv = c.dm[i]["f" + f];
+      set("dm" + i, dmv === null ? "" : F(dmv, 2));
+      set("dd" + i, dmv !== null && ant !== null ? (dmv - ant >= 0 ? "+" : "−") + F(Math.abs(dmv - ant), 2) : "");
+      if (dmv !== null) ant = dmv;
+    });
+    $("#rodape-in").innerHTML = [["W1 mm", F(c.W1, 2)], ["W2 mm", F(c.W2, 2)], ["Ev1 MPa", F(c.Ev1, 1)], ["Ev2 MPa", F(c.Ev2, 1)], ["k", F(c.k, 2)]]
+      .map(function (x) { return "<div><small>" + x[0] + "</small><strong>" + x[1] + "</strong></div>"; }).join("");
+    var fb = app.querySelectorAll(".fases button");
+    fb.forEach(function (b, k) { var s = b.querySelector("small"); var d = c.fases[k].dmf; if (s) s.textContent = d !== null ? "✓ " + F(d, 2) + " mm" : "por fazer"; b.classList.toggle("feito", d !== null); });
+    tickCrono();
+  }
+}
+
+/* ---------- cronómetro ---------- */
+function bip(longo) {
+  try {
+    if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
+    var o = audio.createOscillator(), g = audio.createGain();
+    o.frequency.value = longo ? 660 : 990; o.connect(g); g.connect(audio.destination);
+    g.gain.setValueAtTime(0.0001, audio.currentTime); g.gain.exponentialRampToValueAtTime(0.6, audio.currentTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + (longo ? 0.7 : 0.35));
+    o.start(); o.stop(audio.currentTime + (longo ? 0.75 : 0.4));
+  } catch (e) {}
+  try { navigator.vibrate && navigator.vibrate(longo ? [300, 120, 300] : 250); } catch (e) {}
+}
+function pedirWake() { try { if (navigator.wakeLock) navigator.wakeLock.request("screen").then(function (w) { wake = w; }).catch(function () {}); } catch (e) {} }
+function pararCrono() { if (crono) clearInterval(crono); crono = null; try { wake && wake.release(); } catch (e) {} wake = null; }
+function tickCrono() {
+  var r = rel(); if (!r || UI.vista !== "ecp") return;
+  var p = r.placas[UI.ecp], f = p.fase || 0, btn = app.querySelector('[data-o="btn-crono"]');
+  var ativo = p.t0 && p.t0f === f;
+  app.querySelectorAll(".lt tbody tr").forEach(function (tr) { tr.classList.remove("agora"); });
+  if (!ativo) {
+    if (btn) btn.textContent = "▶ Iniciar";
+    var el = app.querySelector('[data-o="relogio"]'); if (el) el.textContent = "0:00";
+    var pr = app.querySelector('[data-o="prox"]'); if (pr) pr.textContent = "Arranque quando a carga estiver aplicada";
+    return;
+  }
+  var s = Math.floor((Date.now() - p.t0) / 1000), i = Math.min(10, Math.floor(s / 60));
+  if (btn) btn.textContent = "■ Parar";
+  var rl = app.querySelector('[data-o="relogio"]'); if (rl) rl.textContent = Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  var px = app.querySelector('[data-o="prox"]');
+  if (px) px.textContent = s >= 600 ? "10 min — fim da fase" : "Leitura dos " + TEMPOS[i] + " s agora · próxima em " + (60 - (s % 60)) + " s";
+  var tr = app.querySelector('.lt tbody tr[data-i="' + i + '"]'); if (tr) tr.classList.add("agora");
+  if (i !== ultimoBip) {
+    var primeiro = ultimoBip === -1 && s > 5;
+    ultimoBip = i;
+    if (!primeiro) {
+      bip(i === 10);
+      var inp = tr && tr.querySelector("input");
+      if (inp && !inp.value) { inp.focus({ preventScroll: true }); tr.scrollIntoView({ block: "center", behavior: "smooth" }); }
+    }
+  }
+  if (s > 630) { p.t0 = null; gravar(); pararCrono(); tickCrono(); }
+}
+
+/* ---------- ações ---------- */
+function acao(a, x, el) {
+  var r = rel();
+  switch (a) {
+    case "novoRel": var n = novoRel(); UI.rel = n.id; UI.vista = "rel"; UI.tab = "dados"; render(); setTimeout(function () { var i = $("#c_r_relatorio"); i && i.focus(); }, 50); break;
+    case "abrirRel": UI.rel = x; UI.vista = "rel"; UI.tab = "dados"; UI.edTeste = null; render(); break;
+    case "tab": UI.tab = x; render(); window.scrollTo(0, 0); break;
+    case "apagarRel": UI.apagar = "rel"; render(); break;
+    case "apagarRelSim": S.rels = S.rels.filter(function (q) { return q.id !== r.id; }); UI.vista = "lista"; UI.rel = null; UI.apagar = null; gravar(); render(); toast("Relatório apagado"); break;
+    case "cancelar": UI.apagar = null; render(); break;
+    case "guardarTeste":
+      if (num(TESTE.gd) === null && num(TESTE.gh) === null) { toast("Escreva γh e γd"); var q = $("#c_t_gh"); q && q.focus(); return; }
+      var t = JSON.parse(JSON.stringify(TESTE));
+      if (UI.edTeste !== null && UI.edTeste >= 0) { t.hora = r.gama.testes[UI.edTeste].hora; r.gama.testes[UI.edTeste] = t; toast("Teste " + (UI.edTeste + 1) + " corrigido"); }
+      else { t.hora = Date.now(); r.gama.testes.push(t); var cr = calcGama(r.gama.cab, r.gama.testes)[r.gama.testes.length - 1]; toast("Teste " + r.gama.testes.length + " guardado · CR " + F(cr.CR, 1) + "% · " + (cr.conf || "—")); }
+      S.ultimoCab = JSON.parse(JSON.stringify(r.gama.cab)); S.ultimaObra = r.obra; if (txt(r.operador)) S.operador = r.operador;
+      UI.edTeste = null; UI.apagar = null; r.mod = Date.now(); gravar(); render();
+      setTimeout(function () { var i = $("#c_t_pk"); if (i) { $("#form-teste").scrollIntoView({ block: "start" }); i.focus(); } }, 30);
+      break;
+    case "editarTeste": UI.edTeste = Number(x); TESTE = JSON.parse(JSON.stringify(r.gama.testes[UI.edTeste])); UI.apagar = null; render(); $("#form-teste").scrollIntoView({ block: "start" }); break;
+    case "cancelarTeste": UI.edTeste = null; UI.apagar = null; render(); break;
+    case "apagarTeste": UI.apagar = "teste"; render(); break;
+    case "apagarTesteSim": r.gama.testes.splice(UI.edTeste, 1); UI.edTeste = null; UI.apagar = null; gravar(); render(); toast("Teste apagado"); break;
+    case "novaPlaca": novaPlaca(r); UI.ecp = r.placas.length - 1; UI.vista = "ecp"; ultimoBip = -1; render(); window.scrollTo(0, 0); break;
+    case "abrirECP": UI.ecp = Number(x); UI.vista = "ecp"; ultimoBip = -1; render(); window.scrollTo(0, 0); if (r.placas[UI.ecp].t0) iniciarIntervalo(); break;
+    case "fase": var p = r.placas[UI.ecp]; if (p.t0 && p.t0f !== Number(x)) { p.t0 = null; pararCrono(); } p.fase = Number(x); ultimoBip = -1; gravar(); render(); break;
+    case "crono":
+      var pp = r.placas[UI.ecp];
+      if (pp.t0 && pp.t0f === (pp.fase || 0)) { pp.t0 = null; pararCrono(); }
+      else { pp.t0 = Date.now(); pp.t0f = pp.fase || 0; ultimoBip = -1; iniciarIntervalo(); pedirWake(); }
+      gravar(); tickCrono(); break;
+    case "fimECP": pararCrono(); r.placas[UI.ecp].t0 = null; gravar(); UI.vista = "rel"; UI.tab = "placa"; render(); window.scrollTo(0, 0); toast("Ensaio guardado"); break;
+    case "apagarECP": UI.apagar = "ecp"; render(); break;
+    case "apagarECPSim": pararCrono(); r.placas.splice(UI.ecp, 1); UI.vista = "rel"; UI.tab = "placa"; UI.apagar = null; gravar(); render(); toast("Ensaio apagado"); break;
+    case "partilhar": partilhar(r, true); break;
+    case "descarregar": partilhar(r, false); break;
+    case "copiar":
+      var s = JSON.stringify(exportar(r));
+      try { navigator.clipboard.writeText(s).then(function () { toast("Copiado"); }, function () { selecionar(); }); } catch (e) { selecionar(); }
+      break;
+  }
+}
+function selecionar() { var pre = $("pre.json"); if (!pre) return; var rg = document.createRange(); rg.selectNodeContents(pre); var sel = getSelection(); sel.removeAllRanges(); sel.addRange(rg); toast("Texto selecionado — copie-o"); }
+function iniciarIntervalo() { if (crono) clearInterval(crono); crono = setInterval(tickCrono, 250); }
+function partilhar(r, share) {
+  var e = exportar(r), nome = nomeFicheiro(r), texto = JSON.stringify(e, null, 1);
+  var blob = new Blob([texto], { type: "application/json" });
+  var marcar = function () { r.exportado = Date.now(); gravar(); render(); };
+  if (share && navigator.canShare) {
+    try {
+      var file = new File([blob], nome, { type: "application/json" });
+      if (navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: nome, text: "Ensaios de campo — relatório " + (r.relatorio || "") }).then(marcar).catch(function (err) { if (err && err.name !== "AbortError") descarregar(blob, nome, marcar); });
+        return;
+      }
+    } catch (err) {}
+  }
+  descarregar(blob, nome, marcar);
+}
+function descarregar(blob, nome, depois) {
+  var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = nome; document.body.appendChild(a); a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000); toast("Guardado em Transferências: " + nome); depois && depois();
+}
+
+render();
+if ("serviceWorker" in navigator && window.isSecureContext) {
+  navigator.serviceWorker.register("sw.js").catch(function () {});
+}
+</script>
+</body>
+</html>
