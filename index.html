@@ -109,6 +109,12 @@ textarea.i { min-height: 64px; font-size: 16px; }
 .rel { display: grid; gap: 4px; text-align: left; width: 100%; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; color: var(--fg); }
 .rel b { font-size: 18px; }
 .rel span { font-size: 14px; color: var(--muted); }
+.rel-l { position: relative; display: grid; gap: 6px; }
+.rel-l .rel { padding-right: 92px; }
+.lixo { position: absolute; top: 8px; right: 8px; min-height: 40px; padding: 0 12px; border-radius: 8px; border: 1.5px solid color-mix(in srgb, var(--bad) 45%, var(--line));
+  background: var(--card); color: var(--bad); font-weight: 700; font-size: 14px; }
+.hora { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: end; }
+.hora .b { min-height: 48px; }
 .chip { display: inline-block; font-size: 12px; font-weight: 700; border-radius: 10px; padding: 2px 8px; background: var(--soft); color: var(--muted); margin-right: 4px; }
 .chip.ok { background: var(--ok-bg); color: var(--ok); }
 
@@ -133,6 +139,7 @@ table.lt td { padding: 3px 4px; text-align: center; font-family: var(--f-num); }
 table.lt td.tm { font-weight: 700; color: var(--muted); white-space: nowrap; }
 table.lt input { width: 100%; min-width: 74px; min-height: 46px; text-align: center; font: 600 19px var(--f-num); border: 1.5px solid var(--line); border-radius: 8px; background: var(--card); color: var(--fg); padding: 4px; }
 table.lt input:focus { border-color: var(--focus); outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 30%, transparent); }
+table.lt tr.min td.tm { color: var(--fg); }
 table.lt tr.agora td { background: color-mix(in srgb, var(--brand) 28%, transparent); }
 table.lt tr.agora td:first-child { border-radius: 8px 0 0 8px; } table.lt tr.agora td:last-child { border-radius: 0 8px 8px 0; }
 .dm { font-size: 15px; } .dd { font-size: 13px; color: var(--muted); }
@@ -150,6 +157,11 @@ table.lt tr.agora td:first-child { border-radius: 8px 0 0 8px; } table.lt tr.ago
   border-radius: 10px; padding: 10px 16px; font-weight: 600; box-shadow: 0 6px 20px rgba(0,0,0,.25); max-width: calc(100% - 32px); }
 details.card > summary { cursor: pointer; list-style-position: inside; color: var(--muted); }
 details.mais > summary { cursor: pointer; color: var(--muted); font-size: 14px; padding: 6px 0; }
+pre.reg { font: 15px/1.45 var(--f-ui); white-space: pre-wrap; background: var(--soft); padding: 10px; border-radius: 8px; margin: 0; }
+a.b { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+a.b.wa { background: #25d366; border-color: #25d366; color: #0b2e17; }
+label.chk { display: flex; gap: 10px; align-items: center; font-size: 16px; min-height: 44px; }
+label.chk input { width: 24px; height: 24px; accent-color: var(--brand); }
 pre.json { font: 12px/1.35 var(--f-num); white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow: auto; background: var(--soft); padding: 8px; border-radius: 8px; margin: 0; }
 @media (prefers-reduced-motion: no-preference) { .toast { animation: sobe .18s ease-out; } @keyframes sobe { from { transform: translate(-50%, 10px); opacity: 0; } } }
 </style>
@@ -169,7 +181,8 @@ pre.json { font: 12px/1.35 var(--f-num); white-space: pre-wrap; word-break: brea
 
 <script id="calc">
 /* ===== cálculos — os mesmos do programa Argonvia ensaios (modulos/in_situ/calculos.py) ===== */
-var TEMPOS = [0, 60, 120, 180, 240, 300, 360, 420, 480, 540, 600];
+var PASSO = 15;   /* NF P 94-117-1: leituras de 15 em 15 s, até 10 min por fase */
+var TEMPOS = []; for (var _t = 0; _t <= 600; _t += PASSO) TEMPOS.push(_t);
 var FASES = ["1.ª carga", "1.ª descarga", "2.ª carga", "2.ª descarga"];
 
 function num(v) {
@@ -258,8 +271,23 @@ var UI = { vista: "lista", rel: null, tab: "dados", ecp: null, edTeste: null, ap
 var crono = null, audio = null, wake = null, ultimoBip = -1;
 
 function carregar() {
-  try { var s = JSON.parse(localStorage.getItem(CHAVE) || "null"); if (s && s.rels) return s; } catch (e) {}
-  return { v: 1, rels: [], ultimoCab: null, operador: "" };
+  var s = null;
+  try { s = JSON.parse(localStorage.getItem(CHAVE) || "null"); } catch (e) {}
+  if (!s || !s.rels) s = { v: 2, rels: [], ultimoCab: null, operador: "" };
+  if (!s.registos) s.registos = {};
+  /* 1.ª versão: leituras da placa de minuto a minuto (11 linhas) → linhas de 15 s */
+  s.rels.forEach(function (r) {
+    r.placas.forEach(function (p) {
+      if (p.passo === PASSO) return;
+      ["d1", "d2", "d3"].forEach(function (k) {
+        var g = (p.L || {})[k] || [], n = vazia();
+        g.slice(0, 11).forEach(function (row, i) { if (row) n[i * 4] = row; });
+        p.L[k] = n;
+      });
+      p.passo = PASSO;
+    });
+  });
+  return s;
 }
 var tGravar = null;
 function gravar() {
@@ -285,9 +313,24 @@ function pk(v) {
   return km + "+" + p[0].padStart(3, "0") + (p[1] ? "," + p[1] : "");
 }
 function hora(ts) { var d = new Date(ts); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
+function agoraHM() { return hora(Date.now()); }
+function mmss(t) { return Math.floor(t / 60) + ":" + String(t % 60).padStart(2, "0"); }
+function minutos(hm) { var m = /^(\d{1,2}):(\d{2})/.exec(txt(hm)); return m ? Number(m[1]) * 60 + Number(m[2]) : null; }
+function duracao(a, b) {
+  var x = minutos(a), y = minutos(b); if (x === null || y === null) return "";
+  var d = y - x; if (d < 0) d += 1440; return Math.floor(d / 60) + " h " + String(d % 60).padStart(2, "0") + " min";
+}
+function dataPT(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(txt(iso)); return m ? m[3] + "/" + m[2] + "/" + m[1] : txt(iso); }
+/* hora de início / fim do trabalho: a primeira e a última medição (o fim deixa de mexer se for escrito à mão) */
+function atividade(r, p) {
+  var h = agoraHM();
+  if (!txt(r.hora_inicio)) r.hora_inicio = h;
+  if (!r.hora_fim_manual) r.hora_fim = h;
+  if (p) { if (!txt(p.hora_inicio)) p.hora_inicio = h; if (!p.hora_fim_manual) p.hora_fim = h; }
+}
 
 function novoRel() {
-  var r = { id: uid(), criado: Date.now(), relatorio: "", obra: "", local: "", data: hoje(), operador: S.operador || "", obs: "",
+  var r = { id: uid(), criado: Date.now(), relatorio: "", obra: "", local: "", data: hoje(), hora_inicio: "", hora_fim: "", operador: S.operador || "", obs: "",
     gama: { cab: {}, testes: [] }, placas: [], exportado: null };
   if (S.ultimoCab) {
     ["n_serie", "sub_lanco", "camada", "tipo_material", "proctor_relatorio", "amostra_ref", "gmax", "wop", "grau_exigido", "prof"].forEach(function (k) {
@@ -301,7 +344,7 @@ function novaPlaca(r) {
   var ant = r.placas[r.placas.length - 1];
   var p = { n_ensaio: "ECP n.º " + (r.placas.length + 1), local: "", obs: "", placa: ant ? ant.placa : "60", poisson: ant ? ant.poisson : "0,25",
     sigma1: ant ? ant.sigma1 : "250", sigma2: ant ? ant.sigma2 : "200", deflectometros: ant ? ant.deflectometros : 1, ini: ["", "", ""],
-    L: { d1: vazia(), d2: vazia(), d3: vazia() }, fase: 0, t0: null, hora: Date.now() };
+    L: { d1: vazia(), d2: vazia(), d3: vazia() }, passo: PASSO, fase: 0, t0: null, hora: Date.now(), hora_inicio: "", hora_fim: "" };
   r.placas.push(p); gravar(); return p;
 }
 function vazia() { return TEMPOS.map(function () { return {}; }); }
@@ -322,6 +365,9 @@ function campo(path, rot, o) {
   return '<label class="f" for="' + id + '"><span>' + rot + (o.req ? " <b>*</b>" : "") + (o.un ? ' <span class="un">(' + o.un + ")</span>" : "") + "</span>" + inp +
     (o.pk ? '<span class="un" data-o="pk:' + path + '">' + esc(pk(v)) + "</span>" : "") + "</label>";
 }
+function campoHora(path, rot) {
+  return '<div class="hora">' + campo(path, rot, { type: "time" }) + '<button class="b s" data-a="agora" data-x="' + path + '">Agora</button></div>';
+}
 function seg(path, rot, opcoes) {
   var v = obter(path);
   return '<div><div class="seg-l">' + rot + '</div><div class="seg">' + opcoes.map(function (o) {
@@ -332,7 +378,7 @@ function seg(path, rot, opcoes) {
 var TESTE = {};
 function alvo(path) {
   var r = rel(), a = path.split("."), raiz;
-  if (a[0] === "r") raiz = r; else if (a[0] === "g") raiz = r.gama.cab; else if (a[0] === "t") raiz = TESTE; else if (a[0] === "p") raiz = r.placas[UI.ecp];
+  if (a[0] === "r") raiz = r; else if (a[0] === "g") raiz = r.gama.cab; else if (a[0] === "t") raiz = TESTE; else if (a[0] === "p") raiz = r.placas[UI.ecp]; else if (a[0] === "rg") raiz = registo();
   var o = raiz; for (var i = 1; i < a.length - 1; i++) o = o[a[i]];
   return [o, a[a.length - 1]];
 }
@@ -345,7 +391,17 @@ function definir(path, v) {
 
 app.addEventListener("input", function (e) {
   var p = e.target.getAttribute("data-p");
-  if (p) { definir(p, e.target.value); atualizar(); }
+  if (!p) return;
+  definir(p, e.target.value);
+  var r = rel();
+  if (p === "r.hora_fim") r.hora_fim_manual = !!txt(e.target.value);
+  if (p === "p.hora_fim") r.placas[UI.ecp].hora_fim_manual = !!txt(e.target.value);
+  if (p.indexOf("p.L.") === 0 && txt(e.target.value)) { atividade(r, r.placas[UI.ecp]); horasECP(); }
+  if (p.indexOf("rg.") === 0) {
+    if (p === "rg.inicio" || p === "rg.fim") S.registos[UI.regData][p.slice(3) + "_manual"] = !!txt(e.target.value);
+    gravar(); refrescarRegisto(); return;
+  }
+  atualizar();
 });
 app.addEventListener("click", function (e) {
   var b = e.target.closest("[data-seg]");
@@ -363,7 +419,10 @@ app.addEventListener("keydown", function (e) {
   if (e.key !== "Enter" || e.target.tagName !== "INPUT") return;
   e.preventDefault();
   var todos = Array.prototype.slice.call(app.querySelectorAll("input:not([disabled]), textarea"));
-  if (e.target.closest(".lt")) todos = Array.prototype.slice.call(app.querySelectorAll(".lt input"));
+  if (e.target.closest("#leituras")) {
+    todos = Array.prototype.slice.call(app.querySelectorAll("#leituras input"));
+    if (todos.indexOf(e.target) === todos.length - 1 && garantirLinhas(nLinhas() + 1)) todos = Array.prototype.slice.call(app.querySelectorAll("#leituras input"));
+  }
   var i = todos.indexOf(e.target);
   if (e.target.id === "c_t_gd") { acao("guardarTeste"); return; }
   if (i >= 0 && i < todos.length - 1) todos[i + 1].focus(); else e.target.blur();
@@ -400,22 +459,30 @@ function render() {
     var p = r.placas[UI.ecp];
     $("#titulo").innerHTML = esc(p.n_ensaio || "Carga em placa") + "<small>Relatório " + esc(r.relatorio || "—") + " · NF P 94-117-1</small>";
     tabs.hidden = true; vistaECP();
+  } else if (UI.vista === "registo") {
+    $("#titulo").innerHTML = "Registo de trabalho<small>" + esc(dataPT(UI.regData)) + "</small>";
+    tabs.hidden = true; vistaRegisto();
   }
   atualizar();
 }
 
 /* ---------- lista de relatórios ---------- */
 function vistaLista() {
-  var h = '<button class="b p" data-a="novoRel">+ Novo relatório</button>';
+  var h = '<div class="linha"><button class="b p" data-a="novoRel">+ Novo relatório</button><button class="b" data-a="registo">Registo de trabalho</button></div>';
   if (!S.rels.length) h += '<div class="card"><p class="info">Cada relatório junta os testes do gamadensímetro e os ensaios de carga em placa de uma amostra. ' +
     "Tudo fica gravado neste telemóvel enquanto escreve, mesmo sem rede. No fim, em «Enviar», partilhe o ficheiro com o laboratório e importe-o no Argonvia ensaios.</p></div>";
   S.rels.forEach(function (r) {
     var ng = r.gama.testes.length, np = r.placas.length;
-    h += '<button class="rel" data-a="abrirRel" data-x="' + r.id + '"><b>' + esc(r.relatorio ? "Relatório " + r.relatorio : "Relatório sem n.º") + "</b>" +
-      "<span>" + esc(r.obra || "—") + " · " + esc(r.data || "") + "</span><span>" +
+    var horas = txt(r.hora_inicio) ? " · " + esc(r.hora_inicio) + (txt(r.hora_fim) ? "–" + esc(r.hora_fim) : "") : "";
+    h += '<div class="rel-l"><button class="rel" data-a="abrirRel" data-x="' + r.id + '"><b>' + esc(r.relatorio ? "Relatório " + r.relatorio : "Relatório sem n.º") + "</b>" +
+      "<span>" + esc(r.obra || "—") + " · " + esc(dataPT(r.data)) + horas + "</span><span>" +
       (ng ? '<span class="chip">' + ng + " teste" + (ng > 1 ? "s" : "") + " gamadens.</span>" : "") +
       (np ? '<span class="chip">' + np + " ECP</span>" : "") +
-      (r.exportado ? '<span class="chip ok">enviado ' + hora(r.exportado) + "</span>" : "") + "</span></button>";
+      (r.exportado ? '<span class="chip ok">enviado ' + hora(r.exportado) + "</span>" : '<span class="chip">por enviar</span>') + "</span></button>" +
+      (UI.apagarId === r.id
+        ? '<div class="conf-del">Apagar ' + esc(r.relatorio ? "o relatório " + r.relatorio : "este relatório") + (r.exportado ? "" : " (ainda não foi enviado)") +
+          '?<button class="b d s" data-a="apagarListaSim" data-x="' + r.id + '">Apagar</button><button class="b s" data-a="apagarListaNao">Não</button></div>'
+        : '<button class="lixo" data-a="apagarLista" data-x="' + r.id + '" aria-label="Apagar relatório">Apagar</button>') + "</div>";
   });
   app.innerHTML = h;
 }
@@ -425,6 +492,8 @@ function vistaDados() {
   var r = rel();
   var h = '<section class="card"><h2>Relatório</h2><div class="grid2">' +
     campo("r.relatorio", "N.º do relatório", { req: 1, num: 1 }) + campo("r.data", "Data", { type: "date" }) + "</div>" +
+    '<div class="grid2">' + campoHora("r.hora_inicio", "Hora de início") + campoHora("r.hora_fim", "Hora de fim") + "</div>" +
+    '<p class="info">Preenchem-se sozinhas com a 1.ª e a última medição; pode corrigi-las ou carregar em «Agora».</p>' +
     campo("r.obra", "Obra") + campo("r.local", "Localização") +
     '<div class="grid2">' + campo("r.operador", "Operador (iniciais)") + "</div>" + campo("r.obs", "Observações", { area: 1 }) + "</section>";
   h += '<div class="linha"><button class="b p" data-a="tab" data-x="gama">Gamadensímetro ›</button><button class="b p" data-a="tab" data-x="placa">Carga em placa ›</button></div>';
@@ -479,7 +548,7 @@ function vistaGama() {
 function vistaPlacas() {
   var r = rel();
   var h = '<button class="b p" data-a="novaPlaca">+ Novo ensaio de carga em placa</button>';
-  if (!r.placas.length) h += '<div class="card"><p class="info">Cada ensaio tem o seu n.º (ECP n.º 1, 2, …). No ensaio: escreva a placa e as tensões, as leituras antes da carga, e para cada fase arranque o cronómetro quando a carga estiver aplicada. O telemóvel apita a cada minuto, na hora de ler.</p></div>';
+  if (!r.placas.length) h += '<div class="card"><p class="info">Cada ensaio tem o seu n.º (ECP n.º 1, 2, …). No ensaio: escreva a placa e as tensões, as leituras antes da carga, e para cada fase arranque o cronómetro quando a carga estiver aplicada. O telemóvel apita de 15 em 15 s, na hora de ler (mais forte a cada minuto).</p></div>';
   r.placas.forEach(function (p, i) {
     var c = calcPlaca(p);
     h += '<button class="rel" data-a="abrirECP" data-x="' + i + '"><b>' + esc(p.n_ensaio || "ECP") + "</b><span>" + esc(p.local || "sem localização") + "</span><span>" +
@@ -491,7 +560,8 @@ function vistaPlacas() {
 /* ---------- carga em placa: ensaio ---------- */
 function vistaECP() {
   var r = rel(), p = r.placas[UI.ecp], c = calcPlaca(p), nd = nDef(p), f = p.fase || 0;
-  var h = '<section class="card"><h2>Identificação</h2><div class="grid2">' + campo("p.n_ensaio", "N.º do ensaio") + campo("p.local", "Localização / PK") + "</div></section>";
+  var h = '<section class="card"><h2>Identificação</h2><div class="grid2">' + campo("p.n_ensaio", "N.º do ensaio") + campo("p.local", "Localização / PK") + "</div>" +
+    '<div class="grid2">' + campoHora("p.hora_inicio", "Hora de início") + campoHora("p.hora_fim", "Hora de fim") + "</div></section>";
   h += '<details class="card"' + (c.fases[0].dmf === null ? " open" : "") + '><summary><h2 style="display:inline">Placa, tensões e leituras antes da carga</h2></summary>' +
     '<div class="grid2">' + campo("p.placa", "Placa Ø", { num: 1, un: "cm" }) + campo("p.poisson", "Poisson ν", { num: 1 }) +
     campo("p.sigma1", "σ1 — 1.ª carga", { num: 1, un: "kPa" }) + campo("p.sigma2", "σ2 — 2.ª carga", { num: 1, un: "kPa" }) + "</div>" +
@@ -506,22 +576,47 @@ function vistaECP() {
     '<div class="crono"><div><div class="rel-t" data-o="relogio">0:00</div><div class="prox" data-o="prox">Arranque quando a carga estiver aplicada</div></div>' +
     '<button class="b p" data-a="crono" data-o="btn-crono">▶ Iniciar</button></div>' +
     '<div class="tab-wrap"><table class="lt"><thead><tr><th>Tempo</th>' + [0, 1, 2].slice(0, nd).map(function (k) { return "<th>d" + (k + 1) + " (mm)</th>"; }).join("") +
-    "<th>Deflexão</th><th>Δ</th></tr></thead><tbody>" +
-    TEMPOS.map(function (t, i) {
-      return '<tr data-i="' + i + '"><td class="tm">' + (t / 60) + " min</td>" + [0, 1, 2].slice(0, nd).map(function (k) {
-        return '<td><input id="l_' + f + "_" + k + "_" + i + '" data-p="p.L.d' + (k + 1) + "." + i + ".f" + f + '" inputmode="decimal" autocomplete="off" value="' + esc(((p.L["d" + (k + 1)] || [])[i] || {})["f" + f] || "") + '" aria-label="d' + (k + 1) + " aos " + t + ' s"></td>';
-      }).join("") + '<td class="dm" data-o="dm' + i + '"></td><td class="dd" data-o="dd' + i + '"></td></tr>';
-    }).join("") + "</tbody></table></div>" +
-    '<p class="info">Deflexão = |leitura − zero|' + (nd > 1 ? ", média dos " + nd + " deflectómetros" : "") + ". Conta a última leitura da fase. Enter passa à linha seguinte.</p>" +
+    "<th>Deflexão</th><th>Δ</th></tr></thead>" +
+    '<tbody id="leituras">' + TEMPOS.slice(0, linhasIniciais(p, f)).map(function (t, i) { return linhaHTML(p, f, nd, i); }).join("") + "</tbody></table></div>" +
+    '<p class="info">Deflexão = |leitura − zero|' + (nd > 1 ? ", média dos " + nd + " deflectómetros" : "") + ". Leituras de 15 em 15 s; conta a última leitura da fase. Enter passa à linha seguinte (no fim, junta mais uma).</p>" +
     '<div class="linha">' + (f > 0 ? '<button class="b" data-a="fase" data-x="' + (f - 1) + '">‹ Fase anterior</button>' : "") +
     (f < 3 ? '<button class="b p" data-a="fase" data-x="' + (f + 1) + '">Fase seguinte ›</button>' : '<button class="b p" data-a="fimECP">Concluir ensaio</button>') + "</div></section>";
-  h += '<section class="card"><h2>Fases</h2><div class="tab-wrap"><table class="lt"><thead><tr><th style="text-align:left">Fase</th><th>σ kPa</th><th>Carga kN</th><th>Inicial mm</th><th>Final mm</th></tr></thead><tbody>' +
-    c.fases.map(function (x) { return '<tr><td style="text-align:left;font-family:var(--f-ui)">' + x.nome + "</td><td>" + F(x.tensao, 0) + "</td><td>" + F(x.carga, 0) + "</td><td>" + F(x.dmi, 2) + "</td><td>" + F(x.dmf, 2) + "</td></tr>"; }).join("") +
-    "</tbody></table></div>" + campo("p.obs", "Observações", { area: 1 }) + "</section>";
+  h += '<section class="card"><h2>Fases</h2><div class="tab-wrap"><table class="lt"><thead><tr><th style="text-align:left">Fase</th><th>σ kPa</th><th>Carga kN</th><th>Inicial mm</th><th>Final mm</th></tr></thead><tbody id="tab-fases">' + linhasFases(c) + "</tbody></table></div>" + campo("p.obs", "Observações", { area: 1 }) + "</section>";
   h += UI.apagar === "ecp" ? '<div class="conf-del">Apagar ' + esc(p.n_ensaio) + '?<button class="b d s" data-a="apagarECPSim">Apagar</button><button class="b s" data-a="cancelar">Não</button></div>'
     : '<button class="b d" data-a="apagarECP">Apagar este ensaio</button>';
   app.innerHTML = h;
   $("#rodape").hidden = false;
+}
+
+function linhasFases(c) {
+  return c.fases.map(function (x) { return '<tr><td style="text-align:left;font-family:var(--f-ui)">' + x.nome + "</td><td>" + F(x.tensao, 0) + "</td><td>" + F(x.carga, 0) + "</td><td>" + F(x.dmi, 2) + "</td><td>" + F(x.dmf, 2) + "</td></tr>"; }).join("");
+}
+function linhaHTML(p, f, nd, i) {
+  var t = TEMPOS[i];
+  return '<tr data-i="' + i + '"' + (t % 60 === 0 ? ' class="min"' : "") + '><td class="tm">' + mmss(t) + "</td>" + [0, 1, 2].slice(0, nd).map(function (k) {
+    return '<td><input id="l_' + f + "_" + k + "_" + i + '" data-p="p.L.d' + (k + 1) + "." + i + ".f" + f + '" inputmode="decimal" autocomplete="off" value="' +
+      esc(((p.L["d" + (k + 1)] || [])[i] || {})["f" + f] || "") + '" aria-label="d' + (k + 1) + " aos " + mmss(t) + '"></td>';
+  }).join("") + '<td class="dm" data-o="dm' + i + '"></td><td class="dd" data-o="dd' + i + '"></td></tr>';
+}
+/* mostram-se as linhas já escritas e mais uma, no mínimo 5 (0:00 a 1:00); o cronómetro e o Enter juntam mais */
+function linhasIniciais(p, f) {
+  var ult = -1;
+  ["d1", "d2", "d3"].forEach(function (k) { ((p.L || {})[k] || []).forEach(function (row, i) { if (txt((row || {})["f" + f])) ult = Math.max(ult, i); }); });
+  return Math.min(TEMPOS.length, Math.max(5, ult + 2));
+}
+function nLinhas() { var tb = $("#leituras"); return tb ? tb.rows.length : 0; }
+function garantirLinhas(n) {
+  var tb = $("#leituras"); if (!tb) return false;
+  n = Math.min(TEMPOS.length, n);
+  var r = rel(), p = r.placas[UI.ecp], f = p.fase || 0, nd = nDef(p), mudou = false;
+  while (tb.rows.length < n) { tb.insertAdjacentHTML("beforeend", linhaHTML(p, f, nd, tb.rows.length)); mudou = true; }
+  if (mudou) atualizar();
+  return mudou;
+}
+function horasECP() {
+  var r = rel(); if (!r || UI.vista !== "ecp") return;
+  var p = r.placas[UI.ecp];
+  [["c_p_hora_inicio", p.hora_inicio], ["c_p_hora_fim", p.hora_fim]].forEach(function (x) { var el = document.getElementById(x[0]); if (el && document.activeElement !== el) el.value = x[1] || ""; });
 }
 
 /* ---------- enviar ---------- */
@@ -541,7 +636,9 @@ function exportar(r) {
       if (txt(t.cota)) o.cota = txt(t.cota);
       return o;
     });
+    var hs = usados.map(function (t) { return t.hora; }).filter(Boolean);
     ensaios.push({ codigo: "FLAB084", dados: d, hora: usados[0].hora || null,
+      hora_inicio: hs.length ? hora(Math.min.apply(null, hs)) : "", hora_fim: hs.length ? hora(Math.max.apply(null, hs)) : "",
       app: { CR: res.map(function (x) { return x.CR === null ? null : xr(x.CR, 1); }), w: res.map(function (x) { return x.w === null ? null : xr(x.w, 1); }), conf: res.map(function (x) { return x.conf; }) } });
   }
   r.placas.forEach(function (p) {
@@ -556,10 +653,12 @@ function exportar(r) {
         return o;
       });
     }
-    ensaios.push({ codigo: "FLAB401", dados: d, local: txt(p.local), observacoes: txt(p.obs), hora: p.hora || null,
+    ensaios.push({ codigo: "FLAB401", dados: d, tempos: TEMPOS, local: txt(p.local), observacoes: txt(p.obs), hora: p.hora || null,
+      hora_inicio: txt(p.hora_inicio), hora_fim: txt(p.hora_fim),
       app: { W1: c.W1 === null ? null : xr(c.W1, 2), W2: c.W2 === null ? null : xr(c.W2, 2), Ev1: c.Ev1, Ev2: c.Ev2, k: c.k } });
   });
-  return { app: "argonvia-campo", versao: 1, exportado: new Date().toISOString(), relatorio: txt(r.relatorio), obra: txt(r.obra),
+  return { app: "argonvia-campo", versao: 2, exportado: new Date().toISOString(), relatorio: txt(r.relatorio), obra: txt(r.obra),
+    hora_inicio: txt(r.hora_inicio), hora_fim: txt(r.hora_fim),
     localizacao: txt(r.local), data: txt(r.data), operador: txt(r.operador), observacoes: txt(r.obs), ensaios: ensaios };
 }
 function problemas(r) {
@@ -585,12 +684,104 @@ function vistaEnviar() {
     (ng ? ng + " teste" + (ng > 1 ? "s" : "") + " de gamadensímetro (L084)" : "Sem testes de gamadensímetro") + "<br>" +
     (np ? np + " ensaio" + (np > 1 ? "s" : "") + " de carga em placa (L401)" : "Sem ensaios de carga em placa") + "</p>" +
     (pr.length ? '<div class="aviso">' + pr.map(esc).join("<br>") + "</div>" : "") +
-    '<div class="linha"><button class="b p" data-a="partilhar"' + (e.ensaios.length ? "" : " disabled") + '>Partilhar ficheiro</button>' +
+    '<div class="linha"><button class="b p" data-a="partilhar"' + (e.ensaios.length ? "" : " disabled") + '>Enviar ficheiro (WhatsApp, email…)</button>' +
     '<button class="b" data-a="descarregar"' + (e.ensaios.length ? "" : " disabled") + ">Guardar no telemóvel</button></div>" +
-    '<p class="info">Envie por email, WhatsApp ou Drive. No laboratório: Argonvia ensaios → «Importar do Excel…» → escolha o ficheiro <b>' + esc(nomeFicheiro(r)) + "</b>.</p>" +
+    '<p class="info">Carregue em «Enviar ficheiro» e escolha o WhatsApp (ou email, Drive…) e o contacto. No laboratório: Argonvia ensaios → «Importar do Excel…» → escolha o ficheiro <b>' + esc(nomeFicheiro(r)) + "</b>.</p>" +
     (r.exportado ? '<p class="info">Último envio: ' + new Date(r.exportado).toLocaleString("pt-PT") + "</p>" : "") + "</section>" +
     '<details class="card"><summary><h2 style="display:inline">Ver o conteúdo</h2></summary><pre class="json">' + esc(JSON.stringify(e, null, 1)) + '</pre><button class="b s" data-a="copiar">Copiar texto</button></details>';
   app.innerHTML = h;
+}
+
+/* ---------- registo de trabalho (resumo do dia, para enviar por WhatsApp; não é o relatório de ensaio) ---------- */
+function relsDoDia(d) {
+  return S.rels.filter(function (r) { return r.data === d; })
+    .sort(function (a, b) { return (minutos(a.hora_inicio) || 0) - (minutos(b.hora_inicio) || 0) || a.criado - b.criado; });
+}
+function registo() {
+  var d = UI.regData || hoje();
+  var g = S.registos[d] || (S.registos[d] = { operador: S.operador || "", inicio: "", fim: "", obs: "", resultados: false });
+  var rs = relsDoDia(d);
+  if (!g.inicio_manual) {
+    var ini = rs.map(function (r) { return minutos(r.hora_inicio); }).filter(function (x) { return x !== null; });
+    g.inicio = ini.length ? mmss(Math.min.apply(null, ini)) .padStart(5, "0") : "";
+  }
+  if (!g.fim_manual) {
+    var fim = rs.map(function (r) { return minutos(r.hora_fim); }).filter(function (x) { return x !== null; });
+    g.fim = fim.length ? mmss(Math.max.apply(null, fim)).padStart(5, "0") : "";
+  }
+  if (!txt(g.operador)) { var op = rs.map(function (r) { return txt(r.operador); }).filter(Boolean)[0]; if (op) g.operador = op; }
+  return g;
+}
+function textoRegisto() {
+  var d = UI.regData || hoje(), g = registo(), rs = relsDoDia(d), L = [];
+  var totG = 0, totP = 0;
+  L.push("*REGISTO DE TRABALHO — ensaios de campo*");
+  L.push("Data: " + dataPT(d));
+  if (txt(g.operador)) L.push("Técnico: " + txt(g.operador));
+  if (txt(g.inicio) || txt(g.fim)) L.push("Início: " + (txt(g.inicio) || "—") + " · Fim: " + (txt(g.fim) || "—") + (duracao(g.inicio, g.fim) ? " (" + duracao(g.inicio, g.fim) + ")" : ""));
+  var obras = []; rs.forEach(function (r) { if (txt(r.obra) && obras.indexOf(txt(r.obra)) < 0) obras.push(txt(r.obra)); });
+  if (obras.length) L.push("Obra: " + obras.join("; "));
+  rs.forEach(function (r) {
+    var t = r.gama.testes.filter(function (x) { return num(x.gd) !== null; });
+    var pl = r.placas.filter(function (p) { return calcPlaca(p).fases.some(function (f) { return f.dmf !== null; }); });
+    if (!t.length && !pl.length) return;
+    L.push("");
+    L.push("*Relatório " + (txt(r.relatorio) || "s/ n.º") + "*" + (txt(r.local) ? " — " + txt(r.local) : "") +
+      (txt(r.hora_inicio) ? " (" + txt(r.hora_inicio) + (txt(r.hora_fim) ? "–" + txt(r.hora_fim) : "") + ")" : ""));
+    if (t.length) {
+      totG += t.length;
+      var res = calcGama(r.gama.cab, t), nS = res.filter(function (x) { return x.conf === "S"; }).length, nN = res.filter(function (x) { return x.conf === "N"; }).length;
+      var pks = t.map(function (x) { return pk(x.pk); }).filter(Boolean);
+      var hs = t.map(function (x) { return x.hora; }).filter(Boolean);
+      var extra = [txt(r.gama.cab.camada) ? "camada " + txt(r.gama.cab.camada) : "", txt(r.gama.cab.sub_lanco) ? "sub-lanço " + txt(r.gama.cab.sub_lanco) : ""].filter(Boolean).join(", ");
+      L.push("• Gamadensímetro: " + t.length + " teste" + (t.length > 1 ? "s" : "") + (nS + nN ? " (" + nS + " S, " + nN + " N)" : "") +
+        (pks.length ? " — PK " + pks[0] + (pks.length > 1 ? " a " + pks[pks.length - 1] : "") : "") + (extra ? "; " + extra : "") +
+        (hs.length ? "; " + hora(Math.min.apply(null, hs)) + "–" + hora(Math.max.apply(null, hs)) : ""));
+      if (g.resultados) {
+        var crs = res.map(function (x) { return x.CR; }).filter(function (x) { return x !== null; });
+        if (crs.length) L.push("   CR " + F(Math.min.apply(null, crs), 1) + " a " + F(Math.max.apply(null, crs), 1) + " % (exigida " + F(num(r.gama.cab.grau_exigido), 0) + " %)");
+      }
+    }
+    if (pl.length) {
+      totP += pl.length;
+      L.push("• Carga em placa NF P 94-117-1: " + pl.length + " ensaio" + (pl.length > 1 ? "s" : ""));
+      pl.forEach(function (p) {
+        var c = calcPlaca(p);
+        L.push("   " + (txt(p.n_ensaio) || "ECP") + (txt(p.local) ? " — " + txt(p.local) : "") +
+          (txt(p.hora_inicio) ? " (" + txt(p.hora_inicio) + (txt(p.hora_fim) ? "–" + txt(p.hora_fim) : "") + ")" : "") +
+          (c.Ev2 === null ? " — incompleto" : "") +
+          (g.resultados && c.Ev2 !== null ? ": Ev2 " + F(c.Ev2, 1) + " MPa, k " + F(c.k, 2) : ""));
+      });
+    }
+  });
+  L.push("");
+  if (totG + totP) L.push("Total: " + [totG ? totG + " teste" + (totG > 1 ? "s" : "") + " de gamadensímetro" : "", totP ? totP + " ensaio" + (totP > 1 ? "s" : "") + " de carga em placa" : ""].filter(Boolean).join(" e "));
+  else L.push("Sem ensaios registados nesta data.");
+  if (txt(g.obs)) { L.push(""); L.push("Observações: " + txt(g.obs)); }
+  return L.join("\n");
+}
+function vistaRegisto() {
+  var g = registo();
+  var h = '<section class="card"><h2>Dia</h2><div class="grid2"><label class="f" for="reg-data"><span>Data</span><input class="i" type="date" id="reg-data" value="' + esc(UI.regData) + '"></label>' +
+    campo("rg.operador", "Técnico") + "</div>" +
+    '<div class="grid2">' + campoHora("rg.inicio", "Hora de início") + campoHora("rg.fim", "Hora de fim") + "</div>" +
+    '<p class="info">Vêm da 1.ª e da última medição dos relatórios deste dia; pode corrigi-las.</p>' +
+    campo("rg.obs", "Observações (deslocações, paragens, ocorrências…)", { area: 1 }) +
+    '<label class="chk"><input type="checkbox" id="reg-res"' + (g.resultados ? " checked" : "") + "> Incluir resultados (CR, Ev2, k)</label></section>" +
+    '<section class="card"><h2>Mensagem</h2><pre class="reg" id="reg-txt"></pre>' +
+    '<div class="linha"><a class="b p wa" id="reg-wa" href="#" target="_blank" rel="noopener">Enviar por WhatsApp</a><button class="b" data-a="regPartilhar">Partilhar…</button><button class="b" data-a="regCopiar">Copiar</button></div>' +
+    '<p class="info">É um resumo do trabalho do dia, não substitui o relatório de ensaio.</p></section>';
+  app.innerHTML = h;
+  $("#reg-data").onchange = function () { if (this.value) { UI.regData = this.value; render(); } };
+  $("#reg-res").onchange = function () { registo().resultados = this.checked; gravar(); refrescarRegisto(); };
+  refrescarRegisto();
+}
+function refrescarRegisto() {
+  if (UI.vista !== "registo") return;
+  var tx = textoRegisto(), p = $("#reg-txt"), a = $("#reg-wa");
+  if (p) p.textContent = tx;
+  if (a) a.href = "https://wa.me/?text=" + encodeURIComponent(tx);
+  ["inicio", "fim"].forEach(function (k) { var el = document.getElementById("c_rg_" + k); if (el && document.activeElement !== el) el.value = registo()[k] || ""; });
 }
 
 /* ---------- atualização dos valores calculados (sem redesenhar os campos) ---------- */
@@ -622,6 +813,7 @@ function atualizar() {
       set("dd" + i, dmv !== null && ant !== null ? (dmv - ant >= 0 ? "+" : "−") + F(Math.abs(dmv - ant), 2) : "");
       if (dmv !== null) ant = dmv;
     });
+    var tf = $("#tab-fases"); if (tf) tf.innerHTML = linhasFases(c);
     $("#rodape-in").innerHTML = [["W1 mm", F(c.W1, 2)], ["W2 mm", F(c.W2, 2)], ["Ev1 MPa", F(c.Ev1, 1)], ["Ev2 MPa", F(c.Ev2, 1)], ["k", F(c.k, 2)]]
       .map(function (x) { return "<div><small>" + x[0] + "</small><strong>" + x[1] + "</strong></div>"; }).join("");
     var fb = app.querySelectorAll(".fases button");
@@ -655,22 +847,23 @@ function tickCrono() {
     var pr = app.querySelector('[data-o="prox"]'); if (pr) pr.textContent = "Arranque quando a carga estiver aplicada";
     return;
   }
-  var s = Math.floor((Date.now() - p.t0) / 1000), i = Math.min(10, Math.floor(s / 60));
+  var s = Math.floor((Date.now() - p.t0) / 1000), i = Math.min(TEMPOS.length - 1, Math.floor(s / PASSO));
+  garantirLinhas(i + 1);
   if (btn) btn.textContent = "■ Parar";
   var rl = app.querySelector('[data-o="relogio"]'); if (rl) rl.textContent = Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
   var px = app.querySelector('[data-o="prox"]');
-  if (px) px.textContent = s >= 600 ? "10 min — fim da fase" : "Leitura dos " + TEMPOS[i] + " s agora · próxima em " + (60 - (s % 60)) + " s";
+  if (px) px.textContent = s >= 600 ? "10:00 — fim do tempo da fase" : "Ler agora a dos " + mmss(TEMPOS[i]) + " · próxima em " + (PASSO - (s % PASSO)) + " s";
   var tr = app.querySelector('.lt tbody tr[data-i="' + i + '"]'); if (tr) tr.classList.add("agora");
   if (i !== ultimoBip) {
-    var primeiro = ultimoBip === -1 && s > 5;
+    var primeiro = ultimoBip === -1 && s > 3;
     ultimoBip = i;
     if (!primeiro) {
-      bip(i === 10);
+      bip(TEMPOS[i] % 60 === 0);
       var inp = tr && tr.querySelector("input");
       if (inp && !inp.value) { inp.focus({ preventScroll: true }); tr.scrollIntoView({ block: "center", behavior: "smooth" }); }
     }
   }
-  if (s > 630) { p.t0 = null; gravar(); pararCrono(); tickCrono(); }
+  if (s > 615) { p.t0 = null; gravar(); pararCrono(); tickCrono(); }
 }
 
 /* ---------- ações ---------- */
@@ -684,13 +877,15 @@ function acao(a, x, el) {
     case "apagarRelSim": S.rels = S.rels.filter(function (q) { return q.id !== r.id; }); UI.vista = "lista"; UI.rel = null; UI.apagar = null; gravar(); render(); toast("Relatório apagado"); break;
     case "cancelar": UI.apagar = null; render(); break;
     case "guardarTeste":
+      /* o que está escrito nos campos é o que conta (mesmo que o telemóvel ainda não tenha avisado a página) */
+      app.querySelectorAll('#form-teste [data-p^="t."]').forEach(function (el) { TESTE[el.getAttribute("data-p").slice(2)] = el.value; });
       if (num(TESTE.gd) === null && num(TESTE.gh) === null) { toast("Escreva γh e γd"); var q = $("#c_t_gh"); q && q.focus(); return; }
       var t = JSON.parse(JSON.stringify(TESTE));
       if (UI.edTeste !== null && UI.edTeste >= 0) { t.hora = r.gama.testes[UI.edTeste].hora; r.gama.testes[UI.edTeste] = t; toast("Teste " + (UI.edTeste + 1) + " corrigido"); }
-      else { t.hora = Date.now(); r.gama.testes.push(t); var cr = calcGama(r.gama.cab, r.gama.testes)[r.gama.testes.length - 1]; toast("Teste " + r.gama.testes.length + " guardado · CR " + F(cr.CR, 1) + "% · " + (cr.conf || "—")); }
+      else { t.hora = Date.now(); atividade(r); r.gama.testes.push(t); var cr = calcGama(r.gama.cab, r.gama.testes)[r.gama.testes.length - 1]; toast("Teste " + r.gama.testes.length + " guardado · CR " + F(cr.CR, 1) + "% · " + (cr.conf || "—")); }
       S.ultimoCab = JSON.parse(JSON.stringify(r.gama.cab)); S.ultimaObra = r.obra; if (txt(r.operador)) S.operador = r.operador;
       UI.edTeste = null; UI.apagar = null; r.mod = Date.now(); gravar(); render();
-      setTimeout(function () { var i = $("#c_t_pk"); if (i) { $("#form-teste").scrollIntoView({ block: "start" }); i.focus(); } }, 30);
+      var ipk = $("#c_t_pk"); if (ipk) { $("#form-teste").scrollIntoView({ block: "start" }); ipk.focus(); }
       break;
     case "editarTeste": UI.edTeste = Number(x); TESTE = JSON.parse(JSON.stringify(r.gama.testes[UI.edTeste])); UI.apagar = null; render(); $("#form-teste").scrollIntoView({ block: "start" }); break;
     case "cancelarTeste": UI.edTeste = null; UI.apagar = null; render(); break;
@@ -702,20 +897,35 @@ function acao(a, x, el) {
     case "crono":
       var pp = r.placas[UI.ecp];
       if (pp.t0 && pp.t0f === (pp.fase || 0)) { pp.t0 = null; pararCrono(); }
-      else { pp.t0 = Date.now(); pp.t0f = pp.fase || 0; ultimoBip = -1; iniciarIntervalo(); pedirWake(); }
+      else { pp.t0 = Date.now(); pp.t0f = pp.fase || 0; ultimoBip = -1; atividade(r, pp); horasECP(); iniciarIntervalo(); pedirWake(); }
       gravar(); tickCrono(); break;
-    case "fimECP": pararCrono(); r.placas[UI.ecp].t0 = null; gravar(); UI.vista = "rel"; UI.tab = "placa"; render(); window.scrollTo(0, 0); toast("Ensaio guardado"); break;
+    case "fimECP": pararCrono(); r.placas[UI.ecp].t0 = null; atividade(r, r.placas[UI.ecp]); gravar(); UI.vista = "rel"; UI.tab = "placa"; render(); window.scrollTo(0, 0); toast("Ensaio guardado"); break;
     case "apagarECP": UI.apagar = "ecp"; render(); break;
     case "apagarECPSim": pararCrono(); r.placas.splice(UI.ecp, 1); UI.vista = "rel"; UI.tab = "placa"; UI.apagar = null; gravar(); render(); toast("Ensaio apagado"); break;
+    case "agora":
+      definir(x, agoraHM()); if (x.indexOf("rg.") === 0) { S.registos[UI.regData][x.slice(3) + "_manual"] = true; gravar(); } if (x === "r.hora_fim") r.hora_fim_manual = true; if (x === "p.hora_fim") r.placas[UI.ecp].hora_fim_manual = true;
+      var ci = document.getElementById("c_" + x.replace(/[^\w]/g, "_")); if (ci) ci.value = agoraHM();
+      if (x.indexOf("rg.") === 0) refrescarRegisto();
+      break;
+    case "apagarLista": UI.apagarId = x; render(); break;
+    case "apagarListaNao": UI.apagarId = null; render(); break;
+    case "apagarListaSim": S.rels = S.rels.filter(function (q) { return q.id !== x; }); UI.apagarId = null; gravar(); render(); toast("Relatório apagado"); break;
+    case "registo": UI.vista = "registo"; UI.regData = UI.regData || hoje(); render(); window.scrollTo(0, 0); break;
+    case "regPartilhar":
+      var tx = textoRegisto();
+      if (navigator.share) navigator.share({ title: "Registo de trabalho " + dataPT(UI.regData), text: tx }).catch(function () {});
+      else copiar(tx);
+      break;
+    case "regCopiar": copiar(textoRegisto()); break;
     case "partilhar": partilhar(r, true); break;
     case "descarregar": partilhar(r, false); break;
-    case "copiar":
-      var s = JSON.stringify(exportar(r));
-      try { navigator.clipboard.writeText(s).then(function () { toast("Copiado"); }, function () { selecionar(); }); } catch (e) { selecionar(); }
-      break;
+    case "copiar": copiar(JSON.stringify(exportar(r))); break;
   }
 }
-function selecionar() { var pre = $("pre.json"); if (!pre) return; var rg = document.createRange(); rg.selectNodeContents(pre); var sel = getSelection(); sel.removeAllRanges(); sel.addRange(rg); toast("Texto selecionado — copie-o"); }
+function copiar(s) {
+  try { navigator.clipboard.writeText(s).then(function () { toast("Copiado — cole no WhatsApp ou no email"); }, function () { selecionar(); }); } catch (e) { selecionar(); }
+}
+function selecionar() { var pre = $("pre.json") || $("pre.reg"); if (!pre) return; var rg = document.createRange(); rg.selectNodeContents(pre); var sel = getSelection(); sel.removeAllRanges(); sel.addRange(rg); toast("Texto selecionado — copie-o"); }
 function iniciarIntervalo() { if (crono) clearInterval(crono); crono = setInterval(tickCrono, 250); }
 function partilhar(r, share) {
   var e = exportar(r), nome = nomeFicheiro(r), texto = JSON.stringify(e, null, 1);
