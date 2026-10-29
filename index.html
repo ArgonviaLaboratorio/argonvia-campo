@@ -274,7 +274,6 @@ function carregar() {
   var s = null;
   try { s = JSON.parse(localStorage.getItem(CHAVE) || "null"); } catch (e) {}
   if (!s || !s.rels) s = { v: 2, rels: [], ultimoCab: null, operador: "" };
-  if (!s.registos) s.registos = {};
   /* 1.ª versão: leituras da placa de minuto a minuto (11 linhas) → linhas de 15 s */
   s.rels.forEach(function (r) {
     r.placas.forEach(function (p) {
@@ -378,7 +377,7 @@ function seg(path, rot, opcoes) {
 var TESTE = {};
 function alvo(path) {
   var r = rel(), a = path.split("."), raiz;
-  if (a[0] === "r") raiz = r; else if (a[0] === "g") raiz = r.gama.cab; else if (a[0] === "t") raiz = TESTE; else if (a[0] === "p") raiz = r.placas[UI.ecp]; else if (a[0] === "rg") raiz = registo();
+  if (a[0] === "r") raiz = r; else if (a[0] === "g") raiz = r.gama.cab; else if (a[0] === "t") raiz = TESTE; else if (a[0] === "p") raiz = r.placas[UI.ecp];
   var o = raiz; for (var i = 1; i < a.length - 1; i++) o = o[a[i]];
   return [o, a[a.length - 1]];
 }
@@ -397,9 +396,10 @@ app.addEventListener("input", function (e) {
   if (p === "r.hora_fim") r.hora_fim_manual = !!txt(e.target.value);
   if (p === "p.hora_fim") r.placas[UI.ecp].hora_fim_manual = !!txt(e.target.value);
   if (p.indexOf("p.L.") === 0 && txt(e.target.value)) { atividade(r, r.placas[UI.ecp]); horasECP(); }
-  if (p.indexOf("rg.") === 0) {
-    if (p === "rg.inicio" || p === "rg.fim") S.registos[UI.regData][p.slice(3) + "_manual"] = !!txt(e.target.value);
-    gravar(); refrescarRegisto(); return;
+  if (UI.tab === "registo") {
+    if (p === "r.wa" && txt(r.obra)) { S.contactos = S.contactos || {}; S.contactos[txt(r.obra)] = { wa: txt(r.wa), cliente: txt(r.cliente) }; }
+    if (p === "r.cliente" && txt(r.obra)) { S.contactos = S.contactos || {}; S.contactos[txt(r.obra)] = { wa: txt(r.wa), cliente: txt(r.cliente) }; }
+    refrescarRegisto(); return;
   }
   atualizar();
 });
@@ -451,24 +451,21 @@ function render() {
   } else if (UI.vista === "rel") {
     $("#titulo").innerHTML = esc(r.relatorio ? "Relatório " + r.relatorio : "Relatório novo") + "<small>" + esc(r.obra || "sem obra") + "</small>";
     tabs.hidden = false;
-    var T = [["dados", "Dados"], ["gama", "Gamadens."], ["placa", "Placa"], ["enviar", "Enviar"]];
+    var T = [["dados", "Dados"], ["gama", "Gamadens."], ["placa", "Placa"], ["registo", "Registo"], ["enviar", "Ficheiro"]];
     tabs.innerHTML = T.map(function (t) { return '<button role="tab" data-tab="' + t[0] + '" aria-selected="' + (UI.tab === t[0]) + '">' + t[1] + "</button>"; }).join("");
     tabs.querySelectorAll("button").forEach(function (b) { b.onclick = function () { UI.tab = b.getAttribute("data-tab"); UI.apagar = null; render(); window.scrollTo(0, 0); }; });
-    ({ dados: vistaDados, gama: vistaGama, placa: vistaPlacas, enviar: vistaEnviar })[UI.tab]();
+    ({ dados: vistaDados, gama: vistaGama, placa: vistaPlacas, registo: vistaRegisto, enviar: vistaEnviar })[UI.tab]();
   } else if (UI.vista === "ecp") {
     var p = r.placas[UI.ecp];
     $("#titulo").innerHTML = esc(p.n_ensaio || "Carga em placa") + "<small>Relatório " + esc(r.relatorio || "—") + " · NF P 94-117-1</small>";
     tabs.hidden = true; vistaECP();
-  } else if (UI.vista === "registo") {
-    $("#titulo").innerHTML = "Registo de trabalho<small>" + esc(dataPT(UI.regData)) + "</small>";
-    tabs.hidden = true; vistaRegisto();
   }
   atualizar();
 }
 
 /* ---------- lista de relatórios ---------- */
 function vistaLista() {
-  var h = '<div class="linha"><button class="b p" data-a="novoRel">+ Novo relatório</button><button class="b" data-a="registo">Registo de trabalho</button></div>';
+  var h = '<div class="linha"><button class="b p" data-a="novoRel">+ Novo relatório</button></div>';
   if (!S.rels.length) h += '<div class="card"><p class="info">Cada relatório junta os testes do gamadensímetro e os ensaios de carga em placa de uma amostra. ' +
     "Tudo fica gravado neste telemóvel enquanto escreve, mesmo sem rede. No fim, em «Enviar», partilhe o ficheiro com o laboratório e importe-o no Argonvia ensaios.</p></div>";
   S.rels.forEach(function (r) {
@@ -478,7 +475,8 @@ function vistaLista() {
       "<span>" + esc(r.obra || "—") + " · " + esc(dataPT(r.data)) + horas + "</span><span>" +
       (ng ? '<span class="chip">' + ng + " teste" + (ng > 1 ? "s" : "") + " gamadens.</span>" : "") +
       (np ? '<span class="chip">' + np + " ECP</span>" : "") +
-      (r.exportado ? '<span class="chip ok">enviado ' + hora(r.exportado) + "</span>" : '<span class="chip">por enviar</span>') + "</span></button>" +
+      ((r.reg || {}).aberto ? '<span class="chip ok">registo ' + hora(r.reg.aberto) + "</span>" : "") +
+      (r.exportado ? '<span class="chip ok">ficheiro ' + hora(r.exportado) + "</span>" : '<span class="chip">ficheiro por enviar</span>') + "</span></button>" +
       (UI.apagarId === r.id
         ? '<div class="conf-del">Apagar ' + esc(r.relatorio ? "o relatório " + r.relatorio : "este relatório") + (r.exportado ? "" : " (ainda não foi enviado)") +
           '?<button class="b d s" data-a="apagarListaSim" data-x="' + r.id + '">Apagar</button><button class="b s" data-a="apagarListaNao">Não</button></div>'
@@ -658,7 +656,7 @@ function exportar(r) {
       app: { W1: c.W1 === null ? null : xr(c.W1, 2), W2: c.W2 === null ? null : xr(c.W2, 2), Ev1: c.Ev1, Ev2: c.Ev2, k: c.k } });
   });
   return { app: "argonvia-campo", versao: 2, exportado: new Date().toISOString(), relatorio: txt(r.relatorio), obra: txt(r.obra),
-    hora_inicio: txt(r.hora_inicio), hora_fim: txt(r.hora_fim),
+    hora_inicio: txt(r.hora_inicio), hora_fim: txt(r.hora_fim), cliente: txt(r.cliente),
     localizacao: txt(r.local), data: txt(r.data), operador: txt(r.operador), observacoes: txt(r.obs), ensaios: ensaios };
 }
 function problemas(r) {
@@ -692,96 +690,83 @@ function vistaEnviar() {
   app.innerHTML = h;
 }
 
-/* ---------- registo de trabalho (resumo do dia, para enviar por WhatsApp; não é o relatório de ensaio) ---------- */
-function relsDoDia(d) {
-  return S.rels.filter(function (r) { return r.data === d; })
-    .sort(function (a, b) { return (minutos(a.hora_inicio) || 0) - (minutos(b.hora_inicio) || 0) || a.criado - b.criado; });
+/* ---------- registo de trabalho do relatório (resumo para o cliente, por WhatsApp; não é o relatório de ensaio) ---------- */
+function reg(r) { r = r || rel(); if (!r.reg) r.reg = { obs: "", resultados: false }; return r.reg; }
+function numWA(v) {
+  var d = txt(v).replace(/[^\d]/g, "");
+  if (/^00/.test(d)) d = d.slice(2);
+  if (d.length === 9 && /^9/.test(d)) d = "351" + d;      /* telemóvel português sem indicativo */
+  return d;
 }
-function registo() {
-  var d = UI.regData || hoje();
-  var g = S.registos[d] || (S.registos[d] = { operador: S.operador || "", inicio: "", fim: "", obs: "", resultados: false });
-  var rs = relsDoDia(d);
-  if (!g.inicio_manual) {
-    var ini = rs.map(function (r) { return minutos(r.hora_inicio); }).filter(function (x) { return x !== null; });
-    g.inicio = ini.length ? mmss(Math.min.apply(null, ini)) .padStart(5, "0") : "";
-  }
-  if (!g.fim_manual) {
-    var fim = rs.map(function (r) { return minutos(r.hora_fim); }).filter(function (x) { return x !== null; });
-    g.fim = fim.length ? mmss(Math.max.apply(null, fim)).padStart(5, "0") : "";
-  }
-  if (!txt(g.operador)) { var op = rs.map(function (r) { return txt(r.operador); }).filter(Boolean)[0]; if (op) g.operador = op; }
-  return g;
-}
-function textoRegisto() {
-  var d = UI.regData || hoje(), g = registo(), rs = relsDoDia(d), L = [];
-  var totG = 0, totP = 0;
-  L.push("*REGISTO DE TRABALHO — ensaios de campo*");
-  L.push("Data: " + dataPT(d));
-  if (txt(g.operador)) L.push("Técnico: " + txt(g.operador));
-  if (txt(g.inicio) || txt(g.fim)) L.push("Início: " + (txt(g.inicio) || "—") + " · Fim: " + (txt(g.fim) || "—") + (duracao(g.inicio, g.fim) ? " (" + duracao(g.inicio, g.fim) + ")" : ""));
-  var obras = []; rs.forEach(function (r) { if (txt(r.obra) && obras.indexOf(txt(r.obra)) < 0) obras.push(txt(r.obra)); });
-  if (obras.length) L.push("Obra: " + obras.join("; "));
-  rs.forEach(function (r) {
-    var t = r.gama.testes.filter(function (x) { return num(x.gd) !== null; });
-    var pl = r.placas.filter(function (p) { return calcPlaca(p).fases.some(function (f) { return f.dmf !== null; }); });
-    if (!t.length && !pl.length) return;
-    L.push("");
-    L.push("*Relatório " + (txt(r.relatorio) || "s/ n.º") + "*" + (txt(r.local) ? " — " + txt(r.local) : "") +
-      (txt(r.hora_inicio) ? " (" + txt(r.hora_inicio) + (txt(r.hora_fim) ? "–" + txt(r.hora_fim) : "") + ")" : ""));
-    if (t.length) {
-      totG += t.length;
-      var res = calcGama(r.gama.cab, t), nS = res.filter(function (x) { return x.conf === "S"; }).length, nN = res.filter(function (x) { return x.conf === "N"; }).length;
-      var pks = t.map(function (x) { return pk(x.pk); }).filter(Boolean);
-      var hs = t.map(function (x) { return x.hora; }).filter(Boolean);
-      var extra = [txt(r.gama.cab.camada) ? "camada " + txt(r.gama.cab.camada) : "", txt(r.gama.cab.sub_lanco) ? "sub-lanço " + txt(r.gama.cab.sub_lanco) : ""].filter(Boolean).join(", ");
-      L.push("• Gamadensímetro: " + t.length + " teste" + (t.length > 1 ? "s" : "") + (nS + nN ? " (" + nS + " S, " + nN + " N)" : "") +
-        (pks.length ? " — PK " + pks[0] + (pks.length > 1 ? " a " + pks[pks.length - 1] : "") : "") + (extra ? "; " + extra : "") +
-        (hs.length ? "; " + hora(Math.min.apply(null, hs)) + "–" + hora(Math.max.apply(null, hs)) : ""));
-      if (g.resultados) {
-        var crs = res.map(function (x) { return x.CR; }).filter(function (x) { return x !== null; });
-        if (crs.length) L.push("   CR " + F(Math.min.apply(null, crs), 1) + " a " + F(Math.max.apply(null, crs), 1) + " % (exigida " + F(num(r.gama.cab.grau_exigido), 0) + " %)");
-      }
-    }
-    if (pl.length) {
-      totP += pl.length;
-      L.push("• Carga em placa NF P 94-117-1: " + pl.length + " ensaio" + (pl.length > 1 ? "s" : ""));
-      pl.forEach(function (p) {
-        var c = calcPlaca(p);
-        L.push("   " + (txt(p.n_ensaio) || "ECP") + (txt(p.local) ? " — " + txt(p.local) : "") +
-          (txt(p.hora_inicio) ? " (" + txt(p.hora_inicio) + (txt(p.hora_fim) ? "–" + txt(p.hora_fim) : "") + ")" : "") +
-          (c.Ev2 === null ? " — incompleto" : "") +
-          (g.resultados && c.Ev2 !== null ? ": Ev2 " + F(c.Ev2, 1) + " MPa, k " + F(c.k, 2) : ""));
-      });
-    }
-  });
+function textoRegisto(r) {
+  r = r || rel(); var g = reg(r), L = [];
+  L.push("*Argonvia — Registo de trabalho*");
+  L.push("Relatório n.º " + (txt(r.relatorio) || "—") + " · " + dataPT(r.data));
+  if (txt(r.obra)) L.push("Obra: " + txt(r.obra));
+  if (txt(r.cliente)) L.push("Cliente: " + txt(r.cliente));
+  if (txt(r.local)) L.push("Local: " + txt(r.local));
+  if (txt(r.operador)) L.push("Técnico: " + txt(r.operador));
+  if (txt(r.hora_inicio) || txt(r.hora_fim)) L.push("Início: " + (txt(r.hora_inicio) || "—") + " · Fim: " + (txt(r.hora_fim) || "—") +
+    (duracao(r.hora_inicio, r.hora_fim) ? " (" + duracao(r.hora_inicio, r.hora_fim) + ")" : ""));
   L.push("");
-  if (totG + totP) L.push("Total: " + [totG ? totG + " teste" + (totG > 1 ? "s" : "") + " de gamadensímetro" : "", totP ? totP + " ensaio" + (totP > 1 ? "s" : "") + " de carga em placa" : ""].filter(Boolean).join(" e "));
-  else L.push("Sem ensaios registados nesta data.");
+  L.push("*Trabalho efetuado*");
+  var t = r.gama.testes.filter(function (x) { return num(x.gd) !== null; });
+  var pl = r.placas.filter(function (p) { return calcPlaca(p).fases.some(function (f) { return f.dmf !== null; }); });
+  if (t.length) {
+    var res = calcGama(r.gama.cab, t), nS = res.filter(function (x) { return x.conf === "S"; }).length, nN = res.filter(function (x) { return x.conf === "N"; }).length;
+    var pks = t.map(function (x) { return pk(x.pk); }).filter(Boolean);
+    var extra = [txt(r.gama.cab.camada) ? "camada " + txt(r.gama.cab.camada) : "", txt(r.gama.cab.sub_lanco) ? "sub-lanço " + txt(r.gama.cab.sub_lanco) : ""].filter(Boolean).join(", ");
+    L.push("• Controlo de compactação com gamadensímetro: " + t.length + " teste" + (t.length > 1 ? "s" : "") +
+      (pks.length ? " — PK " + pks[0] + (pks.length > 1 ? " a " + pks[pks.length - 1] : "") : "") + (extra ? "; " + extra : ""));
+    if (g.resultados) {
+      var crs = res.map(function (x) { return x.CR; }).filter(function (x) { return x !== null; });
+      if (nS + nN) L.push("   Conformes: " + nS + " · Não conformes: " + nN);
+      if (crs.length) L.push("   Compactação relativa " + F(Math.min.apply(null, crs), 1) + " a " + F(Math.max.apply(null, crs), 1) + " % (exigida " + F(num(r.gama.cab.grau_exigido), 0) + " %)");
+    }
+  }
+  if (pl.length) {
+    L.push("• Ensaios de carga em placa (NF P 94-117-1): " + pl.length);
+    pl.forEach(function (p) {
+      var c = calcPlaca(p);
+      L.push("   " + (txt(p.n_ensaio) || "ECP") + (txt(p.local) ? " — " + txt(p.local) : "") +
+        (txt(p.hora_inicio) ? " (" + txt(p.hora_inicio) + (txt(p.hora_fim) ? "–" + txt(p.hora_fim) : "") + ")" : "") +
+        (c.Ev2 === null ? " — não concluído" : "") +
+        (g.resultados && c.Ev2 !== null ? ": Ev2 " + F(c.Ev2, 1) + " MPa, Ev2/Ev1 " + F(c.k, 2) : ""));
+    });
+  }
+  if (!t.length && !pl.length) L.push("Sem ensaios registados.");
   if (txt(g.obs)) { L.push(""); L.push("Observações: " + txt(g.obs)); }
+  if (g.resultados) { L.push(""); L.push("_Resultados provisórios; os valores oficiais constam do boletim de ensaio._"); }
   return L.join("\n");
 }
 function vistaRegisto() {
-  var g = registo();
-  var h = '<section class="card"><h2>Dia</h2><div class="grid2"><label class="f" for="reg-data"><span>Data</span><input class="i" type="date" id="reg-data" value="' + esc(UI.regData) + '"></label>' +
-    campo("rg.operador", "Técnico") + "</div>" +
-    '<div class="grid2">' + campoHora("rg.inicio", "Hora de início") + campoHora("rg.fim", "Hora de fim") + "</div>" +
-    '<p class="info">Vêm da 1.ª e da última medição dos relatórios deste dia; pode corrigi-las.</p>' +
-    campo("rg.obs", "Observações (deslocações, paragens, ocorrências…)", { area: 1 }) +
-    '<label class="chk"><input type="checkbox" id="reg-res"' + (g.resultados ? " checked" : "") + "> Incluir resultados (CR, Ev2, k)</label></section>" +
+  var r = rel(), g = reg(r), ct = (S.contactos || {})[txt(r.obra)];
+  if (ct) { if (!txt(r.wa) && ct.wa) r.wa = ct.wa; if (!txt(r.cliente) && ct.cliente) r.cliente = ct.cliente; }
+  var h = '<section class="card"><h2>Registo de trabalho</h2>' +
+    '<p class="info">No fim do trabalho, confirme os dados e envie ao cliente por WhatsApp. É um resumo do que foi feito, não substitui o boletim de ensaio.</p>' +
+    '<div class="grid2">' + campoHora("r.hora_inicio", "Hora de início") + campoHora("r.hora_fim", "Hora de fim") + "</div>" +
+    '<div class="grid2">' + campo("r.operador", "Técnico") + campo("r.cliente", "Cliente") + "</div>" +
+    campo("r.wa", "WhatsApp do cliente", { type: "tel", ph: "ex.: 912 345 678" }) +
+    campo("r.reg.obs", "Observações (paragens, ocorrências, condições da frente…)", { area: 1 }) +
+    '<label class="chk"><input type="checkbox" id="reg-res"' + (g.resultados ? " checked" : "") + "> Incluir resultados (provisórios)</label></section>" +
     '<section class="card"><h2>Mensagem</h2><pre class="reg" id="reg-txt"></pre>' +
-    '<div class="linha"><a class="b p wa" id="reg-wa" href="#" target="_blank" rel="noopener">Enviar por WhatsApp</a><button class="b" data-a="regPartilhar">Partilhar…</button><button class="b" data-a="regCopiar">Copiar</button></div>' +
-    '<p class="info">É um resumo do trabalho do dia, não substitui o relatório de ensaio.</p></section>';
+    '<div class="linha"><a class="b p wa" id="reg-wa" href="#" target="_blank" rel="noopener" data-a="regWA">Enviar ao cliente por WhatsApp</a></div>' +
+    '<div class="linha"><button class="b" data-a="regPartilhar">Partilhar…</button><button class="b" data-a="regCopiar">Copiar</button></div>' +
+    '<p class="info" id="reg-estado"></p></section>';
   app.innerHTML = h;
-  $("#reg-data").onchange = function () { if (this.value) { UI.regData = this.value; render(); } };
-  $("#reg-res").onchange = function () { registo().resultados = this.checked; gravar(); refrescarRegisto(); };
+  $("#reg-res").onchange = function () { reg().resultados = this.checked; gravar(); refrescarRegisto(); };
   refrescarRegisto();
 }
 function refrescarRegisto() {
-  if (UI.vista !== "registo") return;
-  var tx = textoRegisto(), p = $("#reg-txt"), a = $("#reg-wa");
+  if (UI.vista !== "rel" || UI.tab !== "registo") return;
+  var r = rel(), tx = textoRegisto(r), p = $("#reg-txt"), a = $("#reg-wa"), n = numWA(r.wa), es = $("#reg-estado");
   if (p) p.textContent = tx;
-  if (a) a.href = "https://wa.me/?text=" + encodeURIComponent(tx);
-  ["inicio", "fim"].forEach(function (k) { var el = document.getElementById("c_rg_" + k); if (el && document.activeElement !== el) el.value = registo()[k] || ""; });
+  if (a) {
+    a.href = "https://wa.me/" + n + "?text=" + encodeURIComponent(tx);
+    a.textContent = n ? "Enviar ao cliente por WhatsApp" : "Enviar por WhatsApp (escolher contacto)";
+  }
+  if (es) es.textContent = reg(r).aberto ? "Aberto no WhatsApp às " + hora(reg(r).aberto) + (n ? " para +" + n : "") + "." : "";
+  [["c_r_hora_inicio", r.hora_inicio], ["c_r_hora_fim", r.hora_fim]].forEach(function (x) { var el = document.getElementById(x[0]); if (el && document.activeElement !== el) el.value = x[1] || ""; });
 }
 
 /* ---------- atualização dos valores calculados (sem redesenhar os campos) ---------- */
@@ -903,17 +888,17 @@ function acao(a, x, el) {
     case "apagarECP": UI.apagar = "ecp"; render(); break;
     case "apagarECPSim": pararCrono(); r.placas.splice(UI.ecp, 1); UI.vista = "rel"; UI.tab = "placa"; UI.apagar = null; gravar(); render(); toast("Ensaio apagado"); break;
     case "agora":
-      definir(x, agoraHM()); if (x.indexOf("rg.") === 0) { S.registos[UI.regData][x.slice(3) + "_manual"] = true; gravar(); } if (x === "r.hora_fim") r.hora_fim_manual = true; if (x === "p.hora_fim") r.placas[UI.ecp].hora_fim_manual = true;
+      definir(x, agoraHM()); if (x === "r.hora_fim") r.hora_fim_manual = true; if (x === "p.hora_fim") r.placas[UI.ecp].hora_fim_manual = true;
       var ci = document.getElementById("c_" + x.replace(/[^\w]/g, "_")); if (ci) ci.value = agoraHM();
-      if (x.indexOf("rg.") === 0) refrescarRegisto();
+      refrescarRegisto();
       break;
     case "apagarLista": UI.apagarId = x; render(); break;
     case "apagarListaNao": UI.apagarId = null; render(); break;
     case "apagarListaSim": S.rels = S.rels.filter(function (q) { return q.id !== x; }); UI.apagarId = null; gravar(); render(); toast("Relatório apagado"); break;
-    case "registo": UI.vista = "registo"; UI.regData = UI.regData || hoje(); render(); window.scrollTo(0, 0); break;
+    case "regWA": reg(r).aberto = Date.now(); gravar(); setTimeout(refrescarRegisto, 50); return;
     case "regPartilhar":
       var tx = textoRegisto();
-      if (navigator.share) navigator.share({ title: "Registo de trabalho " + dataPT(UI.regData), text: tx }).catch(function () {});
+      if (navigator.share) navigator.share({ title: "Registo de trabalho — relatório " + txt(r.relatorio), text: tx }).then(function () { reg(r).aberto = Date.now(); gravar(); refrescarRegisto(); }).catch(function () {});
       else copiar(tx);
       break;
     case "regCopiar": copiar(textoRegisto()); break;

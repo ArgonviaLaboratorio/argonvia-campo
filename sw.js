@@ -1,6 +1,6 @@
 /* Argonvia Campo — funciona sem rede: guarda a app no telemóvel na primeira abertura.
    Ao publicar uma versão nova, mude VERSAO para os telemóveis a irem buscar. */
-var VERSAO = "campo-2";
+var VERSAO = "campo-3";
 var FICHEIROS = ["./", "index.html", "manifest.webmanifest", "icone-192.png", "icone-512.png"];
 self.addEventListener("install", function (e) {
   e.waitUntil(caches.open(VERSAO).then(function (c) { return c.addAll(FICHEIROS); }).then(function () { return self.skipWaiting(); }));
