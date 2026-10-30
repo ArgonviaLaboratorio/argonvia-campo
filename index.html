@@ -673,7 +673,7 @@ function problemas(r) {
   });
   return out;
 }
-function nomeFicheiro(r) { return "campo_" + (txt(r.relatorio) || "sem_relatorio").replace(/[^\w-]+/g, "_") + "_" + (r.data || hoje()) + ".json"; }
+function nomeFicheiro(r) { return "campo_" + (txt(r.relatorio) || "sem_relatorio").replace(/[^\w-]+/g, "_") + "_" + (r.data || hoje()) + ".txt"; }
 function vistaEnviar() {
   var r = rel(), e = exportar(r), pr = problemas(r);
   var ng = e.ensaios.filter(function (x) { return x.codigo === "FLAB084"; }).map(function (x) { return x.dados.testes.length; })[0] || 0;
@@ -912,18 +912,31 @@ function copiar(s) {
 }
 function selecionar() { var pre = $("pre.json") || $("pre.reg"); if (!pre) return; var rg = document.createRange(); rg.selectNodeContents(pre); var sel = getSelection(); sel.removeAllRanges(); sel.addRange(rg); toast("Texto selecionado — copie-o"); }
 function iniciarIntervalo() { if (crono) clearInterval(crono); crono = setInterval(tickCrono, 250); }
+/* O Android só deixa partilhar alguns tipos de ficheiro (texto, PDF, imagens…) e não aceita .json: por isso o
+   ficheiro vai como texto (.txt), com o mesmo conteúdo; o Argonvia ensaios reconhece-o pelo conteúdo. */
 function partilhar(r, share) {
   var e = exportar(r), nome = nomeFicheiro(r), texto = JSON.stringify(e, null, 1);
-  var blob = new Blob([texto], { type: "application/json" });
+  var blob = new Blob([texto], { type: "text/plain" });
   var marcar = function () { r.exportado = Date.now(); gravar(); render(); };
-  if (share && navigator.canShare) {
-    try {
-      var file = new File([blob], nome, { type: "application/json" });
-      if (navigator.canShare({ files: [file] })) {
-        navigator.share({ files: [file], title: nome, text: "Ensaios de campo — relatório " + (r.relatorio || "") }).then(marcar).catch(function (err) { if (err && err.name !== "AbortError") descarregar(blob, nome, marcar); });
-        return;
-      }
-    } catch (err) {}
+  if (share) {
+    if (!navigator.share || !window.isSecureContext) {
+      descarregar(blob, nome, marcar);
+      toast("Este endereço não permite partilhar (só https). Ficheiro guardado em Transferências.");
+      return;
+    }
+    var file = null;
+    try { file = new File([blob], nome, { type: "text/plain" }); } catch (err) {}
+    if (file && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+      navigator.share({ files: [file] }).then(marcar).catch(function (err) {
+        if (err && err.name === "AbortError") return;           /* o técnico cancelou */
+        descarregar(blob, nome, marcar);
+        toast("Não deu para partilhar (" + (err && err.name || "erro") + "). Ficheiro guardado em Transferências.");
+      });
+      return;
+    }
+    descarregar(blob, nome, marcar);
+    toast("Este telemóvel não partilha ficheiros pelo browser. Ficheiro guardado em Transferências.");
+    return;
   }
   descarregar(blob, nome, marcar);
 }
